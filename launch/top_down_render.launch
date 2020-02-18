@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
+    <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
+    
+    <param name="map" value="$(find top_down_render)/maps/pennovation"/>
+  </node>
+</launch>
