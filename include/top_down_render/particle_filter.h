@@ -4,6 +4,7 @@
 #include "top_down_render/state_particle.h"
 
 #include <random>
+#include <execution>
 #include <ros/ros.h>
 #include <Eigen/Dense>
 #include <opencv2/core/core.hpp>
@@ -23,6 +24,8 @@ class ParticleFilter {
     std::mt19937 *gen_;
     Eigen::VectorXf weights_;
     TopDownMap* map_;
+
+    void updateParticle(StateParticle* particle, Eigen::ArrayXXc &top_down_scan);
 };
 
 #endif //PARTICLE_FILTER_H_

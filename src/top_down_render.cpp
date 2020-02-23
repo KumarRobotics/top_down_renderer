@@ -169,7 +169,12 @@ void TopDownRender::publishHeatMap(Eigen::ArrayXXc &top_down, float local_res, f
 }
 
 void TopDownRender::updateFilter(Eigen::ArrayXXc &top_down, std_msgs::Header &header) {
+  auto start = std::chrono::high_resolution_clock::now();
   filter_->update(top_down);
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
+  ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
+
   filter_->propagate();
 
   cv::Mat background_copy = background_img_.clone();

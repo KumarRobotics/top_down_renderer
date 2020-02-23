@@ -19,12 +19,14 @@ class StateParticle {
     void propagate(std::mt19937 *gen);
     State state();
     void setState(State s);
-    float computeWeight(Eigen::ArrayXXc &top_down_scan);
+    void computeWeight(Eigen::ArrayXXc &top_down_scan);
+    float weight();
   private:
     //State
     State state_;
     float width_;
     float height_;
+    float weight_;
     TopDownMap *map_;
 };
 

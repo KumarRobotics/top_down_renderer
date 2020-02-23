@@ -26,10 +26,15 @@ void ParticleFilter::propagate() {
   }
 }
 
+void ParticleFilter::updateParticle(StateParticle* particle, Eigen::ArrayXXc &top_down_scan) {
+}
+
 void ParticleFilter::update(Eigen::ArrayXXc &top_down_scan) {
   //Recompute weights
-  for (int i=0; i<particles_.size(); i++) {
-    weights_[i] = particles_[i]->computeWeight(top_down_scan);
+  std::for_each(std::execution::par, particles_.begin(), particles_.end(), 
+                std::bind(&StateParticle::computeWeight, std::placeholders::_1, top_down_scan));
+  for (int i; i<particles_.size(); i++) {
+    weights_[i] = particles_[i]->weight();
   }
   weights_ = weights_/weights_.sum(); //Renormalize
   

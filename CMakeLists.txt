@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(top_down_render)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++17)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -171,6 +171,7 @@ target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
 	${PCL_LIBRARIES}
   ${OpenCV_LIBRARIES}
+  tbb
 )
 
 #############

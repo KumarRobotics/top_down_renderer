@@ -35,7 +35,11 @@ State StateParticle::state() {
   return state_;
 }
 
-float StateParticle::computeWeight(Eigen::ArrayXXc &top_down_scan) {
+float StateParticle::weight() {
+  return weight_;
+}
+
+void StateParticle::computeWeight(Eigen::ArrayXXc &top_down_scan) {
   Eigen::Vector2f center(state_.x, state_.y);
   Eigen::ArrayXXc cls(top_down_scan.rows(), top_down_scan.cols());
 
@@ -43,5 +47,5 @@ float StateParticle::computeWeight(Eigen::ArrayXXc &top_down_scan) {
   Eigen::ArrayXXc diff = cls.cwiseNotEqual(top_down_scan).cast<uint8_t>() * top_down_scan;
   float cost = static_cast<float>(diff.count())/top_down_scan.count();
 
-  return 1/(cost+0.01); //Add epsilon to avoid divide-by-zero problems
+  weight_ = 1/(cost+0.01); //Add epsilon to avoid divide-by-zero problems
 }
