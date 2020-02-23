@@ -1,8 +1,91 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-  <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
-    <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
-    
-    <param name="map" value="$(find top_down_render)/maps/pennovation"/>
+  <arg name="sim" default="False"/>
+  <arg name="output" default="screen"/>
+  <arg name="motion_prior_topic" default="os_node/rofl_odom/pose"/>
+  <arg name="aerial_map_ns" default="titan"/>
+
+  <arg name="world_config_path" default="$(find semantics_manager)/config/config.yaml"/>
+  <arg name="init_param_path" default="$(find top_down_render)/config/init_conditions_default.yaml"/>
+
+  <!-- For manual case only -->
+  <arg name="svg_origin_x" default="0"/>
+  <arg name="svg_origin_y" default="0"/>
+  <arg name="init_pos_px_x" default="-1"/>
+  <arg name="init_pos_px_y" default="-1"/>
+  <arg name="init_pos_px_cov" default="10"/>
+  <arg name="init_pos_m_x" default="0"/>
+  <arg name="init_pos_m_y" default="0"/>
+  <arg name="init_pos_deg_theta" default="0"/>
+  <arg name="init_pos_deg_cov" default="5"/>
+
+  <arg name="particle_count" default="300"/>
+  <arg name="filter_pos_cov" default="0.15"/>
+  <arg name="filter_theta_cov" default="0.004"/>
+  <arg name="filter_regularization" default="0.7"/>
+  <arg name="filter_force_on_map" default="False"/>
+  <arg name="filter_scale_log_min" default="-0.1"/>
+  <arg name="filter_scale_log_max" default="1"/>
+  <arg name="conf_factor" default="1"/>
+  <arg name="out_of_bounds_const" default="3"/>
+  <arg name="target_uncertainty_m" default="2.5"/>
+  <arg name="range_scale_min" default="0.5"/>
+  <arg name="range_scale_max" default="4"/>
+
+  <arg name="map_frame" default="map"/>
+  <arg name="map_viz_frame" default="sem_map"/>
+  <arg name="use_motion_prior" default="True"/>
+  <arg name="map_pub_resolution" default="1"/>
+
+  <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="$(arg output)">
+    <!-- Remappings -->
+    <remap from="~/pc" to="os_node/segmented_point_cloud"/>
+    <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
+    <remap from="~/aerial_map" to="$(arg aerial_map_ns)/asoom/map"/>
+    <remap from="~/motion_prior" to="$(arg motion_prior_topic)"/>
+
+    <!-- Params -->
+    <param name="world_config_path" value="$(arg world_config_path)"/>
+    <rosparam command="load" subst_value="True" file="$(arg init_param_path)" if="$(eval init_param_path != 'none')"/>
+
+    <!-- Manual settings if init_param_path is not provided -->
+    <param name="svg_origin_x" value="$(arg svg_origin_x)" if="$(eval init_param_path == 'none')"/>
+    <param name="svg_origin_y" value="$(arg svg_origin_y)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_px_x" value="$(arg init_pos_px_x)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_px_y" value="$(arg init_pos_px_y)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_px_cov" value="$(arg init_pos_px_cov)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_m_x" value="$(arg init_pos_m_x)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_m_y" value="$(arg init_pos_m_y)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_deg_theta" value="$(arg init_pos_deg_theta)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_deg_cov" value="$(arg init_pos_deg_cov)" if="$(eval init_param_path == 'none')"/>
+
+    <param name="particle_count" value="$(arg particle_count)"/>
+    <param name="filter_pos_cov" value="$(arg filter_pos_cov)"/>
+    <param name="filter_theta_cov" value="$(arg filter_theta_cov)"/>
+    <param name="filter_regularization" value="$(arg filter_regularization)"/>
+    <param name="filter_force_on_map" value="$(arg filter_force_on_map)"/>
+    <param name="filter_scale_log_min" value="$(arg filter_scale_log_min)"/>
+    <param name="filter_scale_log_max" value="$(arg filter_scale_log_max)"/>
+    <param name="conf_factor" value="$(arg conf_factor)"/>
+    <param name="out_of_bounds_const" value="$(arg out_of_bounds_const)"/>
+    <param name="target_uncertainty_m" value="$(arg target_uncertainty_m)"/>
+    <param name="range_scale_min" value="$(arg range_scale_min)"/>
+    <param name="range_scale_max" value="$(arg range_scale_max)"/>
+
+    <param name="map_frame" value="$(arg map_frame)"/>
+    <param name="map_viz_frame" value="$(arg map_viz_frame)"/>
+    <param name="use_motion_prior" value="$(arg use_motion_prior)"/>
+    <param name="map_pub_resolution" value="$(arg map_pub_resolution)"/>
   </node>
+
+  <group if="$(eval not arg('sim'))">
+    <include file="$(find rangenet_inf)/launch/rangenet_inf.launch" pass_all_args="true"/>
+  </group>
+
+  <group if="$(eval arg('sim'))">
+    <node pkg="tf2_ros" type="static_transform_publisher" name="gt"
+      args="0 0 0 0 0 0 husky/TrueState husky/base"/> 
+  </group>
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="world_map" args="0 0 0 0 0 0 1 world map" />
 </launch>

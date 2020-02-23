@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(top_down_render)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+## Compile as C++17
+set(CMAKE_CXX_STANDARD 17)
+
+## Export compile_commands.json for semantic autocompletion
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -15,12 +18,16 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
 	image_transport
 	cv_bridge
+  message_filters
+  eigen_conversions
+  semantics_manager
+  grid_map_comp
 )
 
 ## System dependencies are found with CMake's conventions
 find_package(PCL 1.8 REQUIRED COMPONENTS common features visualization)
 find_package(OpenCV)
-
+find_package(VTK REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -110,7 +117,7 @@ find_package(OpenCV)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES top_down_render
-  CATKIN_DEPENDS geometry_msgs rospy sensor_msgs roscpp pcl_ros image_transport cv_bridge
+  CATKIN_DEPENDS geometry_msgs rospy sensor_msgs roscpp pcl_ros image_transport cv_bridge message_filters eigen_conversions semantics_manager
 )
 
 ###########
@@ -135,14 +142,27 @@ add_definitions(
 )
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/top_down_render.cpp
-# )
+add_library(${PROJECT_NAME}
+  src/top_down_render.cpp 
+  src/top_down_map.cpp
+  src/top_down_map_polar.cpp
+  src/state_particle.cpp
+  src/particle_filter.cpp
+  src/scan_renderer.cpp
+  src/scan_renderer_polar.cpp
+  src/active_localizer.cpp
+)
 
-## Add cmake target dependencies of the library
-## as an example, code may need to be generated before libraries
-## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+	${PCL_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  tbb
+)
+target_include_directories(${PROJECT_NAME} PUBLIC "include")
+target_include_directories(${PROJECT_NAME} PUBLIC ${catkin_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} PUBLIC ${PCL_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} PUBLIC ${OpenCV_INCLUDE_DIRS})
 
 # Declare a C++ executable
 # With catkin_make all packages are built within a single CMake context
@@ -150,17 +170,7 @@ add_definitions(
 add_executable(
   ${PROJECT_NAME}_node 
   src/top_down_render_node.cpp 
-  src/top_down_render.cpp 
-  src/top_down_map.cpp
-  src/state_particle.cpp
-  src/particle_filter.cpp
 )
-
-## Rename C++ executable without prefix
-## The above recommended prefix causes long target names, the following renames the
-## target back to the shorter version for ease of user use
-## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
-# set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
@@ -169,9 +179,31 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
-	${PCL_LIBRARIES}
-  ${OpenCV_LIBRARIES}
+  ${PROJECT_NAME}
 )
+
+## Rename C++ executable without prefix
+## The above recommended prefix causes long target names, the following renames the
+## target back to the shorter version for ease of user use
+## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
+# set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
+
+add_executable(
+  refine_map
+  src/refine_map.cpp
+)
+
+## Add cmake target dependencies of the executable
+## same as for the library above
+add_dependencies(refine_map ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#
+### Specify libraries to link a library or executable target against
+target_link_libraries(refine_map
+  ${catkin_LIBRARIES}
+  ${VTK_LIBRARIES}
+)
+
+
 
 #############
 ## Install ##

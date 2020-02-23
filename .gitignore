@@ -1,1 +1,6 @@
 *.vim
+*.swp
+*.zip
+*.json
+*.png
+*.svg
