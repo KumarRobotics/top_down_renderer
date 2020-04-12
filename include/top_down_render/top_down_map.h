@@ -12,13 +12,15 @@ namespace Eigen {
   typedef Array<bool, 1, Dynamic> Array1Xb;
   typedef Array<uint8_t, 1, Dynamic> Array1Xc;
   typedef Array<uint8_t, Dynamic, Dynamic> ArrayXXc;
+  typedef Array<float, Dynamic, Dynamic> ArrayXXf;
 }
 
 class TopDownMap {
   public:
     TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, float scale);
 
-    void getLocalMap(Eigen::Vector2f &center, float rot, float res, Eigen::ArrayXXc &classes);
+    void getRasterMap(Eigen::Vector2f &center, float rot, float res, Eigen::ArrayXXc &classes);
+    void getLocalMap(Eigen::Vector2f &center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     float scale();
   private:
     std::vector<std::vector<std::vector<Eigen::Vector2f>>> poly_;

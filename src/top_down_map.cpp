@@ -75,7 +75,7 @@ void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, Eigen::Ref<Eigen::A
   }
 }
 
-void TopDownMap::getLocalMap(Eigen::Vector2f &center, float rot, float res, Eigen::ArrayXXc &classes) {
+void TopDownMap::getRasterMap(Eigen::Vector2f &center, float rot, float res, Eigen::ArrayXXc &classes) {
   classes = 0;
   Eigen::Array2Xf pts(2, classes.rows()*classes.cols());
 
@@ -104,4 +104,7 @@ void TopDownMap::getLocalMap(Eigen::Vector2f &center, float rot, float res, Eige
   //Remap classes
   Eigen::Map<Eigen::Array1Xc> classes_flattened(classes.data(), 1, classes.size());
   getClasses(pts, classes_flattened);
+}
+
+void TopDownMap::getLocalMap(Eigen::Vector2f &center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
 }

@@ -22,34 +22,46 @@ void TopDownRender::initialize() {
   }
 
   flatten_lut_ = cv::Mat::zeros(256, 1, CV_8UC1);
-  flatten_lut_.at<uint8_t>(0) = 1;   //ground
-  flatten_lut_.at<uint8_t>(1) = 1;   //sidewalk
-  flatten_lut_.at<uint8_t>(2) = 2;   //building
-  flatten_lut_.at<uint8_t>(3) = 2;   //wall
+  flatten_lut_.at<uint8_t>(100) = 2; //road
+  flatten_lut_.at<uint8_t>(101) = 3; //dirt
+  flatten_lut_.at<uint8_t>(102) = 1; //grass
+  flatten_lut_.at<uint8_t>(2) = 4;   //building
+  flatten_lut_.at<uint8_t>(3) = 4;   //wall
 
-  flatten_lut_.at<uint8_t>(7) = 0;   //vegetation
-  flatten_lut_.at<uint8_t>(8) = 0;   //terrain
-  flatten_lut_.at<uint8_t>(13) = 1;  //car
-  flatten_lut_.at<uint8_t>(14) = 1;  //truck
-  flatten_lut_.at<uint8_t>(15) = 1;  //bus
+  flatten_lut_.at<uint8_t>(7) = 5;   //vegetation
+  flatten_lut_.at<uint8_t>(8) = 1;   //terrain
+  flatten_lut_.at<uint8_t>(13) = 2;  //car
+  flatten_lut_.at<uint8_t>(14) = 2;  //truck
+  flatten_lut_.at<uint8_t>(15) = 2;  //bus
 
+  //This order determines priority as well
   color_lut_ = cv::Mat::ones(256, 1, CV_8UC3)*255;
   color_lut_.at<cv::Vec3b>(0) = cv::Vec3b(255,255,255); //unlabeled
-  color_lut_.at<cv::Vec3b>(1) = cv::Vec3b(255,0,0);     //ground
-  color_lut_.at<cv::Vec3b>(2) = cv::Vec3b(0,0,255);     //building
-  color_lut_.at<cv::Vec3b>(3) = cv::Vec3b(0,255,0);     //veg
-  color_lut_.at<cv::Vec3b>(4) = cv::Vec3b(255,255,0);   //car
+  color_lut_.at<cv::Vec3b>(1) = cv::Vec3b(0,100,0);     //terrain
+  color_lut_.at<cv::Vec3b>(2) = cv::Vec3b(255,0,0);     //road
+  color_lut_.at<cv::Vec3b>(3) = cv::Vec3b(255,0,255);   //dirt
+  color_lut_.at<cv::Vec3b>(4) = cv::Vec3b(0,0,255);     //building
+  color_lut_.at<cv::Vec3b>(5) = cv::Vec3b(0,255,0);     //veg
+  color_lut_.at<cv::Vec3b>(6) = cv::Vec3b(255,255,0);   //car
+
+  //If simulating, don't need
+  normal_filter_ = false;
 
   std::string map_path;
   nh_.getParam("map", map_path);
   background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
-  map_ = new TopDownMap(map_path+".svg", color_lut_, 4, 5.9);
-  filter_ = new ParticleFilter(1000, background_img_.size().width/5.9, background_img_.size().height/5.9, map_);
+
+  float res;
+  nh_.getParam("res", res);
+
+  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, res);
+  filter_ = new ParticleFilter(3000, background_img_.size().width/res, background_img_.size().height/res, map_);
 }
 
 void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
 									                pcl::PointCloud<pcl::Normal>::Ptr& normals,	
-									                float side_length, Eigen::ArrayXXc &img) {
+									                float side_length, Eigen::ArrayXXc &img, 
+                                  Eigen::ArrayXXf &weights) {
   size_t img_size = img.cols();
 
   //Generate bins of points
@@ -67,6 +79,9 @@ void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::Const
   //Look at each bin, pick representative class
   for (size_t xi=0; xi<img_size; xi++) {
     for (size_t yi=0; yi<img_size; yi++) {
+      //Cell weight is the number of lidar points in that cell
+      //This will tend to up-weight walls
+      weights(img_size-1-yi, xi) = org_pc_[xi][yi].size();
       //Look at top 10
       unsigned int num_floor = 0;
       unsigned int num_total = 0;
@@ -91,7 +106,7 @@ void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::Const
         }
       }
 
-      if (num_floor >= num_total*0.9 && num_total > 1) {
+      if (num_floor >= num_total*0.9 && num_total > 1 && normal_filter_) {
         img(img_size-1-yi,xi) = 1;
       } else {
         img(img_size-1-yi,xi) = best_class&0xff;
@@ -113,6 +128,22 @@ void TopDownRender::publishTopDown(cv::Mat& top_down_img, std_msgs::Header &head
 	scan_pub_.publish(img_msg);
 }
 
+//Debug function
+void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header) {
+  Eigen::ArrayXXc cls(h, w);
+  map_->getRasterMap(center, 0, res, cls);
+
+  cv::Mat map_mat(cls.cols(), cls.rows(), CV_8UC1, (void*)cls.data());
+  cv::Mat map_multichannel, map_color;
+  cv::cvtColor(map_mat, map_multichannel, cv::COLOR_GRAY2BGR);
+  cv::LUT(map_multichannel, color_lut_, map_color);
+
+	//Convert to ROS and publish
+	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
+  img_msg->header = header;
+	map_pub_.publish(img_msg);
+}
+
 //Really a debug function, should not be called in normal operation.  Very slow
 void TopDownRender::publishHeatMap(Eigen::ArrayXXc &top_down, float local_res, float heatmap_res, cv::Rect roi, std_msgs::Header &header) {
   //Tests
@@ -126,7 +157,7 @@ void TopDownRender::publishHeatMap(Eigen::ArrayXXc &top_down, float local_res, f
       for (float theta=0; theta<2*3.14; theta+=0.2) {
         Eigen::Vector2f center(x, y);
 
-        map_->getLocalMap(center, theta, 1, cls);
+        map_->getRasterMap(center, theta, local_res, cls);
         Eigen::ArrayXXc diff = cls.cwiseNotEqual(top_down).cast<uint8_t>() * top_down;
         float lh = static_cast<float>(diff.count())/top_down.count();
         if (lh < best_val) {
@@ -168,9 +199,9 @@ void TopDownRender::publishHeatMap(Eigen::ArrayXXc &top_down, float local_res, f
 	map_pub_.publish(img_msg);
 }
 
-void TopDownRender::updateFilter(Eigen::ArrayXXc &top_down, std_msgs::Header &header) {
+void TopDownRender::updateFilter(Eigen::ArrayXXc &top_down, Eigen::ArrayXXf &top_down_weights, std_msgs::Header &header) {
   auto start = std::chrono::high_resolution_clock::now();
-  filter_->update(top_down);
+  filter_->update(top_down, top_down_weights);
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
   ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
@@ -199,8 +230,10 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
 
   //Generate top down render and remap
   Eigen::ArrayXXc top_down(50,50);
+  Eigen::ArrayXXf top_down_weights(50,50);
   top_down.setZero();
-	renderTopDown(cloud, normals, 1, top_down);
+  top_down_weights.setZero();
+	renderTopDown(cloud, normals, 1, top_down, top_down_weights);
   cv::Mat top_down_img(top_down.cols(), top_down.rows(), CV_8UC1, (void*)top_down.data());
   cv::LUT(top_down_img, flatten_lut_, top_down_img); //remap classes
 
@@ -213,7 +246,8 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   ROS_INFO_STREAM("Render took " << dur.count() << " ms");
 
   //publishHeatMap(top_down, 1, 2, cv::Rect(70, 20, 100, 100), img_header);
-  updateFilter(top_down, img_header);
+  publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
+  updateFilter(top_down, top_down_weights, img_header);
   publishTopDown(top_down_img, img_header);
 
 	//Normal visualization

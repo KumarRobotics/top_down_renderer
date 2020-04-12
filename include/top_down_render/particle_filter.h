@@ -14,7 +14,7 @@ class ParticleFilter {
   public:
     ParticleFilter(int N, float width, float height, TopDownMap *map);
     void propagate();
-    void update(Eigen::ArrayXXc &top_down_scan);
+    void update(Eigen::ArrayXXc &top_down_scan, Eigen::ArrayXXf &top_down_weights);
     void visualize(cv::Mat &img);
   private:
     int num_particles_;

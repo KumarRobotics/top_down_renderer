@@ -4,6 +4,7 @@
 #include "top_down_render/top_down_map.h"
 
 #include <random>
+#include <chrono>
 
 typedef struct State {
   float x;
@@ -19,7 +20,7 @@ class StateParticle {
     void propagate(std::mt19937 *gen);
     State state();
     void setState(State s);
-    void computeWeight(Eigen::ArrayXXc &top_down_scan);
+    void computeWeight(Eigen::ArrayXXc &top_down_scan, Eigen::ArrayXXf &top_down_weights);
     float weight();
   private:
     //State

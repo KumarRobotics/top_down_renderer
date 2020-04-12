@@ -43,12 +43,16 @@ class TopDownRender {
     TopDownMap *map_;
     ParticleFilter *filter_;
 
+    bool normal_filter_ = true;
+
     void publishTopDown(cv::Mat& top_down_img, std_msgs::Header &header);
+    void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header);
     void publishHeatMap(Eigen::ArrayXXc &top_down, float local_res, float heatmap_res, cv::Rect roi, std_msgs::Header &header);
 		void renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
 											 pcl::PointCloud<pcl::Normal>::Ptr& normals,	
-											 float side_length, Eigen::ArrayXXc &img);
-    void updateFilter(Eigen::ArrayXXc &top_down, std_msgs::Header &header);
+											 float side_length, Eigen::ArrayXXc &img,
+                       Eigen::ArrayXXf &weights);
+    void updateFilter(Eigen::ArrayXXc &top_down, Eigen::ArrayXXf &top_down_weights, std_msgs::Header &header);
     void pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr&);
 };
 

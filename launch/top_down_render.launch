@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
-    <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
+    <remap from="~/pc" to="/husky/lidar_points"/>
     
+    <!--
     <param name="map" value="$(find top_down_render)/maps/pennovation"/>
+    <param name="res" value="5.9"/>
+    -->
+    <!--
+    <param name="map" value="$(find top_down_render)/maps/airsim_env"/>
+    <param name="res" value="6.1"/>
+    -->
+    <param name="map" value="$(find top_down_render)/maps/unity_rural1_env"/>
+    <param name="res" value="2.64"/>
   </node>
 </launch>
