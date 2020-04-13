@@ -51,11 +51,20 @@ void TopDownRender::initialize() {
   nh_.getParam("map", map_path);
   background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
 
-  float res;
-  nh_.getParam("res", res);
+  float svg_res, raster_res;
+  nh_.getParam("svg_res", svg_res);
+  nh_.getParam("raster_res", raster_res);
 
-  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, res);
-  filter_ = new ParticleFilter(3000, background_img_.size().width/res, background_img_.size().height/res, map_);
+  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, svg_res, raster_res);
+  filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
+
+  //DEBUG FOR VISUALIZATION
+  ros::Rate rate(1);
+  while (ros::ok()) {
+    std_msgs::Header img_header;
+    publishLocalMap(5000/2.64, 5000/2.64, Eigen::Vector2f(1006/2.64/2, 633/2.64/2), 1/2., img_header);
+    rate.sleep();
+  }
 }
 
 void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
@@ -130,12 +139,17 @@ void TopDownRender::publishTopDown(cv::Mat& top_down_img, std_msgs::Header &head
 
 //Debug function
 void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header) {
-  Eigen::ArrayXXc cls(h, w);
-  map_->getRasterMap(center, 0, res, cls);
+  std::vector<Eigen::ArrayXXf> classes;
+  for (int i=0; i<6; i++) {
+    Eigen::ArrayXXf cls(h, w);
+    classes.push_back(cls);
+  }
+  map_->getLocalMap(center, 0, res, classes);
 
-  cv::Mat map_mat(cls.cols(), cls.rows(), CV_8UC1, (void*)cls.data());
-  cv::Mat map_multichannel, map_color;
-  cv::cvtColor(map_mat, map_multichannel, cv::COLOR_GRAY2BGR);
+  cv::Mat map_mat(classes[4].cols(), classes[4].rows(), CV_32FC1, (void*)(classes[4].data()));
+  cv::Mat map_multichannel, map_byte, map_color;
+  map_mat.convertTo(map_byte, CV_8UC1);
+  cv::cvtColor(map_byte, map_multichannel, cv::COLOR_GRAY2BGR);
   cv::LUT(map_multichannel, color_lut_, map_color);
 
 	//Convert to ROS and publish

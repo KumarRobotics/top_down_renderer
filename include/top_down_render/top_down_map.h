@@ -17,14 +17,16 @@ namespace Eigen {
 
 class TopDownMap {
   public:
-    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, float scale);
+    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, float scale, float res);
 
-    void getRasterMap(Eigen::Vector2f &center, float rot, float res, Eigen::ArrayXXc &classes);
-    void getLocalMap(Eigen::Vector2f &center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
+    void getRasterMap(Eigen::Vector2f center, float rot, float res, Eigen::ArrayXXc &classes);
+    void getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     float scale();
   private:
     std::vector<std::vector<std::vector<Eigen::Vector2f>>> poly_;
-    float scale_; //pixels per meter
+    std::vector<Eigen::ArrayXXf> class_maps_;
+    float scale_; //pixels per meter for svg
+    float resolution_; //meters per pixel for rasterized map
 
     void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, Eigen::Ref<Eigen::Array1Xc> classes);
 };
