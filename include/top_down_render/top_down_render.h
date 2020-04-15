@@ -47,7 +47,6 @@ class TopDownRender {
 
     void publishTopDown(cv::Mat& top_down_img, std_msgs::Header &header);
     void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header);
-    void publishHeatMap(Eigen::ArrayXXc &top_down, float local_res, float heatmap_res, cv::Rect roi, std_msgs::Header &header);
 		void renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
 											 pcl::PointCloud<pcl::Normal>::Ptr& normals,	
 											 float side_length, Eigen::ArrayXXc &img,
