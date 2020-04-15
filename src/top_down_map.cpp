@@ -8,6 +8,7 @@
 TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, float scale, float res) {
   scale_ = scale;
   resolution_ = res;
+  num_classes_ = num_classes;
   //parse svg
   NSVGimage* map;
 
@@ -53,7 +54,7 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, fl
   Eigen::ArrayXXc full_map(static_cast<int>(map->height/resolution_/scale_), 
                            static_cast<int>(map->width/resolution_/scale_));
   getRasterMap(Eigen::Vector2f(map->width/2/scale_, map->height/2/scale_), 0, resolution_, full_map);
-  ROS_INFO_STREAM("Rasterized map Size: " << full_map.cols() << " x " << full_map.rows());
+  ROS_INFO_STREAM("Rasterized map size: " << full_map.cols() << " x " << full_map.rows());
   for (int i=0; i<num_classes; i++) {
     Eigen::ArrayXXf class_map = 1-(full_map == i).cast<float>(); //0 inside obstacles, 1 elsewhere
     class_maps_.push_back(class_map);
@@ -63,6 +64,10 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, fl
 
 float TopDownMap::scale() {
   return scale_;
+}
+
+int TopDownMap::numClasses() {
+  return num_classes_;
 }
 
 void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, Eigen::Ref<Eigen::Array1Xc> classes) {
@@ -147,8 +152,6 @@ void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::
 
   //Generate list of indices
   Eigen::Array2Xi pts_int = pts.round().cast<int>();
-
-  ROS_INFO_STREAM(dists[0].rows() << ", " << dists[0].cols());
 
   for (int cls=0; cls<dists.size(); cls++) {
     for (int idx=0; idx<dists[0].rows()*dists[0].cols(); idx++) {

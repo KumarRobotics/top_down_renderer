@@ -41,12 +41,20 @@ float StateParticle::weight() {
 
 void StateParticle::computeWeight(Eigen::ArrayXXc &top_down_scan, Eigen::ArrayXXf &top_down_weights) {
   Eigen::Vector2f center(state_.x, state_.y);
-  Eigen::ArrayXXc cls(top_down_scan.rows(), top_down_scan.cols());
+  std::vector<Eigen::ArrayXXf> classes;
+  for (int i=0; i<map_->numClasses(); i++) {
+    classes.push_back(Eigen::ArrayXXf(top_down_scan.rows(), top_down_scan.cols()));
+  }
 
-  map_->getRasterMap(center, state_.theta, 3, cls);
+  map_->getLocalMap(center, state_.theta, 1, classes);
 
-  Eigen::ArrayXXf diff = cls.cwiseNotEqual(top_down_scan).cast<float>() * top_down_weights;
-  float cost = diff.sum()/top_down_weights.sum();
+  float cost = 0;
+  Eigen::ArrayXXf tmp;
+  for (int i=1; i<map_->numClasses(); i++) {
+    tmp = (top_down_scan == i).cast<float>() * classes[i] * top_down_weights;
+    cost += tmp.sum();
+  }
+  cost /= top_down_weights.sum();
 
   weight_ = 1/(cost+0.01); //Add epsilon to avoid divide-by-zero problems
 }

@@ -59,12 +59,12 @@ void TopDownRender::initialize() {
   filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
 
   //DEBUG FOR VISUALIZATION
-  ros::Rate rate(1);
-  while (ros::ok()) {
-    std_msgs::Header img_header;
-    publishLocalMap(5000/2.64, 5000/2.64, Eigen::Vector2f(1006/2.64/2, 633/2.64/2), 1/2., img_header);
-    rate.sleep();
-  }
+  //ros::Rate rate(1);
+  //while (ros::ok()) {
+  //  std_msgs::Header img_header;
+  //  publishLocalMap(50, 50, Eigen::Vector2f(631/2.64, 264/2.64), 1., img_header);
+  //  rate.sleep();
+  //}
 }
 
 void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
@@ -90,7 +90,7 @@ void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::Const
     for (size_t yi=0; yi<img_size; yi++) {
       //Cell weight is the number of lidar points in that cell
       //This will tend to up-weight walls
-      weights(img_size-1-yi, xi) = org_pc_[xi][yi].size();
+      weights(yi, xi) = org_pc_[xi][yi].size();
       //Look at top 10
       unsigned int num_floor = 0;
       unsigned int num_total = 0;
@@ -116,9 +116,9 @@ void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::Const
       }
 
       if (num_floor >= num_total*0.9 && num_total > 1 && normal_filter_) {
-        img(img_size-1-yi,xi) = 1;
+        img(yi,xi) = 1;
       } else {
-        img(img_size-1-yi,xi) = best_class&0xff;
+        img(yi,xi) = best_class&0xff;
       }
       //Clear queue
       pt_q_type().swap(org_pc_[xi][yi]);
@@ -146,7 +146,7 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
   }
   map_->getLocalMap(center, 0, res, classes);
 
-  cv::Mat map_mat(classes[4].cols(), classes[4].rows(), CV_32FC1, (void*)(classes[4].data()));
+  cv::Mat map_mat(classes[1].cols(), classes[1].rows(), CV_32FC1, (void*)(classes[1].data()));
   cv::Mat map_multichannel, map_byte, map_color;
   map_mat.convertTo(map_byte, CV_8UC1);
   cv::cvtColor(map_byte, map_multichannel, cv::COLOR_GRAY2BGR);
