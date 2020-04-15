@@ -93,22 +93,19 @@ void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, Eigen::Ref<Eigen::A
   }
 }
 
-void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, Eigen::ArrayXXc &classes) {
-  classes = 0;
-  Eigen::Array2Xf pts(2, classes.rows()*classes.cols());
-
+void TopDownMap::samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res) {
   //Generate the sampling coordinates
   Eigen::Map<Eigen::ArrayXXf, 0, Eigen::Stride<2, Eigen::Dynamic>> x_vals(
-      pts.data(), classes.cols(), classes.rows(), 
-      Eigen::Stride<2, Eigen::Dynamic>(2, classes.rows()*2));
+      pts.data(), cols, rows, 
+      Eigen::Stride<2, Eigen::Dynamic>(2, rows*2));
   Eigen::Map<Eigen::ArrayXXf, 0, Eigen::Stride<Eigen::Dynamic, 2>> y_vals(
-      pts.row(1).data(), classes.rows(), classes.cols(), 
-      Eigen::Stride<Eigen::Dynamic, 2>(classes.rows()*2, 2));
+      pts.row(1).data(), rows, cols, 
+      Eigen::Stride<Eigen::Dynamic, 2>(rows*2, 2));
 
-  x_vals = Eigen::RowVectorXf::LinSpaced(classes.rows(), 
-      -scale_*res*(classes.rows()-1)/2., scale_*res*(classes.rows()-1)/2.).replicate(1, classes.cols());
-  y_vals = Eigen::RowVectorXf::LinSpaced(classes.cols(), 
-      -scale_*res*(classes.cols()-1)/2., scale_*res*(classes.cols()-1)/2.).replicate(1, classes.rows());
+  x_vals = Eigen::RowVectorXf::LinSpaced(rows, 
+      -res*(rows-1)/2., res*(rows-1)/2.).replicate(1, cols);
+  y_vals = Eigen::RowVectorXf::LinSpaced(cols, 
+      -res*(cols-1)/2., res*(cols-1)/2.).replicate(1, rows);
 
   //Transform coordinates
   Eigen::Matrix2f rotm;
@@ -116,8 +113,14 @@ void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, Eige
           sin(rot), cos(rot);
   pts = rotm*pts.matrix();
 
-  x_vals += center[1]*scale_;
-  y_vals += center[0]*scale_;
+  x_vals += center[1];
+  y_vals += center[0];
+}
+
+void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, Eigen::ArrayXXc &classes) {
+  classes = 0;
+  Eigen::Array2Xf pts(2, classes.rows()*classes.cols());
+  samplePts(center*scale_, rot, pts, classes.cols(), classes.rows(), scale_*res);
 
   //Remap classes
   Eigen::Map<Eigen::Array1Xc> classes_flattened(classes.data(), 1, classes.size());
@@ -127,28 +130,7 @@ void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, Eige
 void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
   if (dists.size() < 1) return;
   Eigen::Array2Xf pts(2, dists[0].rows()*dists[0].cols());
-
-  //Generate the sampling coordinates
-  Eigen::Map<Eigen::ArrayXXf, 0, Eigen::Stride<2, Eigen::Dynamic>> x_vals(
-      pts.data(), dists[0].cols(), dists[0].rows(), 
-      Eigen::Stride<2, Eigen::Dynamic>(2, dists[0].rows()*2));
-  Eigen::Map<Eigen::ArrayXXf, 0, Eigen::Stride<Eigen::Dynamic, 2>> y_vals(
-      pts.row(1).data(), dists[0].rows(), dists[0].cols(), 
-      Eigen::Stride<Eigen::Dynamic, 2>(dists[0].rows()*2, 2));
-
-  x_vals = Eigen::RowVectorXf::LinSpaced(dists[0].rows(), 
-      -res/resolution_*(dists[0].rows()-1)/2., res/resolution_*(dists[0].rows()-1)/2.).replicate(1, dists[0].cols());
-  y_vals = Eigen::RowVectorXf::LinSpaced(dists[0].cols(), 
-      -res/resolution_*(dists[0].cols()-1)/2., res/resolution_*(dists[0].cols()-1)/2.).replicate(1, dists[0].rows());
-
-  //Transform coordinates
-  Eigen::Matrix2f rotm;
-  rotm << cos(rot), -sin(rot),
-          sin(rot), cos(rot);
-  pts = rotm*pts.matrix();
-
-  x_vals += center[1]/resolution_;
-  y_vals += center[0]/resolution_;
+  samplePts(center/resolution_, rot, pts, dists[0].cols(), dists[0].rows(), res/resolution_);
 
   //Generate list of indices
   Eigen::Array2Xi pts_int = pts.round().cast<int>();

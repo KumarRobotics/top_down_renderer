@@ -31,6 +31,7 @@ class TopDownMap {
     int num_classes_;
 
     void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, Eigen::Ref<Eigen::Array1Xc> classes);
+    void samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res);
 };
 
 #endif
