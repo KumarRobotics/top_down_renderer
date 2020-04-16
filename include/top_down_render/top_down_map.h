@@ -11,6 +11,7 @@
 namespace Eigen {
   typedef Array<bool, 1, Dynamic> Array1Xb;
   typedef Array<uint8_t, 1, Dynamic> Array1Xc;
+  typedef Array<float, 1, Dynamic> Array1Xf;
   typedef Array<uint8_t, Dynamic, Dynamic> ArrayXXc;
   typedef Array<float, Dynamic, Dynamic> ArrayXXf;
 }
@@ -29,8 +30,8 @@ class TopDownMap {
     float resolution_; //meters per pixel for rasterized map
     int num_classes_;
 
-    void getRasterMap(Eigen::Vector2f center, float rot, float res, Eigen::ArrayXXc &classes);
-    void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, Eigen::Ref<Eigen::Array1Xc> classes);
+    void getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes);
+    void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes);
     void samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res);
 };
 

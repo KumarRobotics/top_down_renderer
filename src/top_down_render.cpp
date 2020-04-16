@@ -146,7 +146,7 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
   }
   map_->getLocalMap(center, 0, res, classes);
 
-  cv::Mat map_mat(classes[1].cols(), classes[1].rows(), CV_32FC1, (void*)(classes[1].data()));
+  cv::Mat map_mat(classes[3].cols(), classes[3].rows(), CV_32FC1, (void*)(classes[3].data()));
   cv::Mat map_multichannel, map_byte, map_color;
   map_mat.convertTo(map_byte, CV_8UC1);
   cv::cvtColor(map_byte, map_multichannel, cv::COLOR_GRAY2BGR);

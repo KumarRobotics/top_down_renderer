@@ -50,8 +50,8 @@ void StateParticle::computeWeight(Eigen::ArrayXXc &top_down_scan, Eigen::ArrayXX
 
   float cost = 0;
   Eigen::ArrayXXf tmp;
-  for (int i=1; i<map_->numClasses(); i++) {
-    tmp = (top_down_scan == i).cast<float>() * classes[i] * top_down_weights;
+  for (int i=1; i<=map_->numClasses(); i++) {
+    tmp = (top_down_scan == i).cast<float>() * classes[i-1] * top_down_weights;
     cost += tmp.sum();
   }
   cost /= top_down_weights.sum();

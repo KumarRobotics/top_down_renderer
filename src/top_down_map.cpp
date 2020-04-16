@@ -51,14 +51,13 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, fl
 
   //Generate full rasterized map
   ROS_INFO_STREAM("Rasterizing map...");
-  Eigen::ArrayXXc full_map(static_cast<int>(map->height/resolution_/scale_), 
-                           static_cast<int>(map->width/resolution_/scale_));
-  getRasterMap(Eigen::Vector2f(map->width/2/scale_, map->height/2/scale_), 0, resolution_, full_map);
-  ROS_INFO_STREAM("Rasterized map size: " << full_map.cols() << " x " << full_map.rows());
   for (int i=0; i<num_classes; i++) {
-    Eigen::ArrayXXf class_map = 1-(full_map == i).cast<float>(); //0 inside obstacles, 1 elsewhere
+    Eigen::ArrayXXf class_map(static_cast<int>(map->height/resolution_/scale_), 
+                              static_cast<int>(map->width/resolution_/scale_));; //0 inside obstacles, 1 elsewhere
     class_maps_.push_back(class_map);
   }
+  ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
+  getRasterMap(Eigen::Vector2f(map->width/2/scale_, map->height/2/scale_), 0, resolution_, class_maps_);
   ROS_INFO_STREAM("Rasterization complete");
 }
 
@@ -70,25 +69,25 @@ int TopDownMap::numClasses() {
   return num_classes_;
 }
 
-void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, Eigen::Ref<Eigen::Array1Xc> classes) {
+void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes) {
+  if (classes.size() < poly_.size()) return;
   //Algorithm modified from https://en.wikipedia.org/wiki/Even-odd_rule
-  Eigen::Array1Xc class_fills(1, classes.size());
-  int cls_id = 1;
+  int cls_id = 0;
   for (auto cls : poly_) {
+    Eigen::Map<Eigen::Array1Xf> class_fills(classes[cls_id].data(), 1, classes[cls_id].size());
     class_fills = -1;
     for (auto poly : cls) {
       int j = poly.size()-1;
       for (int i=0; i<poly.size(); i++) {
         class_fills *= -2*((pts.row(0) < poly[i][1]).cwiseNotEqual(pts.row(0) < poly[j][1]) * 
                        (pts.row(1) < (poly[i][0] + ((poly[j][0]-poly[i][0]) * (pts.row(0)-poly[i][1]) / 
-                       (poly[j][1]-poly[i][1]))))).cast<uint8_t>() + 1;
+                       (poly[j][1]-poly[i][1]))))).cast<float>() + 1;
         j = i;
       }
     }
+    class_fills *= -1; //invert
     class_fills += 1;
-
-    classes += class_fills*cls_id/2;
-    classes = classes.min(cls_id);
+    class_fills /= 2;
     cls_id++;
   }
 }
@@ -117,14 +116,13 @@ void TopDownMap::samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &p
   y_vals += center[0];
 }
 
-void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, Eigen::ArrayXXc &classes) {
-  classes = 0;
-  Eigen::Array2Xf pts(2, classes.rows()*classes.cols());
-  samplePts(center*scale_, rot, pts, classes.cols(), classes.rows(), scale_*res);
+void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes) {
+  if (classes.size() < 1) return;
 
-  //Remap classes
-  Eigen::Map<Eigen::Array1Xc> classes_flattened(classes.data(), 1, classes.size());
-  getClasses(pts, classes_flattened);
+  Eigen::Array2Xf pts(2, classes[0].rows()*classes[0].cols());
+  samplePts(center*scale_, rot, pts, classes[0].cols(), classes[0].rows(), scale_*res);
+
+  getClasses(pts, classes);
 }
 
 void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
