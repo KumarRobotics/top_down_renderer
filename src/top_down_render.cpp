@@ -10,16 +10,6 @@ void TopDownRender::initialize() {
 	img_pub_ = it_->advertise("img", 1);
 	scan_pub_ = it_->advertise("scan", 1);
 	map_pub_ = it_->advertise("map_max", 1);
-  
-  //Fill org_pc_
-  for (size_t xi=0; xi<100; xi++) {
-    std::vector<pt_q_type> org_pc_x;
-    for (size_t yi=0; yi<100; yi++) {
-      pt_q_type q;
-      org_pc_x.push_back(q);
-    }
-    org_pc_.push_back(org_pc_x);
-  }
 
   flatten_lut_ = cv::Mat::zeros(256, 1, CV_8UC1);
   flatten_lut_.at<uint8_t>(100) = 2; //road
@@ -62,16 +52,20 @@ void TopDownRender::initialize() {
   //ros::Rate rate(1);
   //while (ros::ok()) {
   //  std_msgs::Header img_header;
-  //  publishLocalMap(50, 50, Eigen::Vector2f(631/2.64, 264/2.64), 1., img_header);
+  //  publishLocalMap(100, 150, Eigen::Vector2f(631/2.64, 264/2.64), 1., img_header);
   //  rate.sleep();
   //}
 }
 
 void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
 									                pcl::PointCloud<pcl::Normal>::Ptr& normals,	
-									                float side_length, Eigen::ArrayXXc &img, 
-                                  Eigen::ArrayXXf &weights) {
-  size_t img_size = img.cols();
+									                float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
+  if (imgs.size() < 1) return;
+  size_t img_size = imgs[0].cols();
+
+  for (int i=0; i<imgs.size(); i++) {
+    imgs[i].setZero();
+  }
 
   //Generate bins of points
   for (size_t idx=0; idx<cloud->height*cloud->width; idx++) {
@@ -82,59 +76,56 @@ void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::Const
     int y_ind = std::round(pt.y/side_length)+img_size/2;
     if (x_ind >= 0 && x_ind < img_size && y_ind >= 0 && y_ind < img_size) {
       PointXYZClassNormal pt(cloud->points[idx], normals->points[idx]);
-      org_pc_[x_ind][y_ind].push(pt);
-    }
-  }
-  //Look at each bin, pick representative class
-  for (size_t xi=0; xi<img_size; xi++) {
-    for (size_t yi=0; yi<img_size; yi++) {
-      //Cell weight is the number of lidar points in that cell
-      //This will tend to up-weight walls
-      weights(yi, xi) = org_pc_[xi][yi].size();
-      //Look at top 10
-      unsigned int num_floor = 0;
-      unsigned int num_total = 0;
-      std::map<uint32_t, unsigned int> class_cnt;
-      for (size_t idx=0; org_pc_[xi][yi].size()>0; idx++) {
-        auto pt = org_pc_[xi][yi].top();
-        if (pt.pt_normal.normal_z > 0.9) num_floor++; 
-        num_total++;
-
-        if (idx < 5) {
-          //Look at classification for top 5
-          class_cnt[*reinterpret_cast<int*>(&pt.pt_xyz.rgb)]++;
-        }
-        org_pc_[xi][yi].pop();
+      if (!normal_filter_ || normals->points[idx].normal_z < 0.9) {
+        int pt_class = *reinterpret_cast<const int*>(&cloud->points[idx].rgb) & 0xff;
+        imgs[flatten_lut_.at<uint8_t>(pt_class)-1](y_ind, x_ind)++;
       }
-      uint32_t best_class = 255;
-      unsigned int best_class_cnt = 0;
-      for (auto x : class_cnt) {
-        if (x.second > best_class_cnt) {
-          best_class_cnt = x.second;
-          best_class = x.first;
-        }
-      }
-
-      if (num_floor >= num_total*0.9 && num_total > 1 && normal_filter_) {
-        img(yi,xi) = 1;
-      } else {
-        img(yi,xi) = best_class&0xff;
-      }
-      //Clear queue
-      pt_q_type().swap(org_pc_[xi][yi]);
     }
   }
 }
 
-void TopDownRender::publishTopDown(cv::Mat& top_down_img, std_msgs::Header &header) {
-  cv::Mat top_down_multichannel, top_down_color;
-  cv::cvtColor(top_down_img, top_down_multichannel, cv::COLOR_GRAY2BGR);
-  cv::LUT(top_down_multichannel, color_lut_, top_down_color);
-  
+void TopDownRender::publishTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
+  cv::Mat map_color;
+  visualize(top_down, map_color);
+
 	//Convert to ROS and publish
-	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", top_down_color).toImageMsg();
+	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
   img_msg->header = header;
 	scan_pub_.publish(img_msg);
+}
+
+void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img) {
+  cv::Mat map_mat(classes[0].cols(), classes[0].rows(), CV_8UC1, cv::Scalar(0));
+
+  for (int idx=0; idx<map_mat.size().width; idx++) {
+    for (int idy=0; idy<map_mat.size().height; idy++) {
+      char best_cls = 0;
+      float best_cls_score = -std::numeric_limits<float>::infinity();
+      float worst_cls_score = std::numeric_limits<float>::infinity();
+      char cls_id = 1;
+      for (auto cls : classes) {
+        if (cls(idx, idy) >= best_cls_score) {
+          best_cls_score = cls(idx, idy);
+          best_cls = cls_id;
+        }
+        if (cls(idx, idy) < worst_cls_score) {
+          worst_cls_score = cls(idx, idy);
+        }
+        cls_id++;
+      }
+
+      if (best_cls_score == worst_cls_score) {
+        //All scores are the same, show white
+        map_mat.at<uint8_t>(idy, idx) = 0;
+      } else {
+        map_mat.at<uint8_t>(idy, idx) = best_cls;
+      }
+    }
+  }
+
+  cv::Mat map_multichannel;
+  cv::cvtColor(map_mat, map_multichannel, cv::COLOR_GRAY2BGR);
+  cv::LUT(map_multichannel, color_lut_, img);
 }
 
 //Debug function
@@ -145,12 +136,13 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
     classes.push_back(cls);
   }
   map_->getLocalMap(center, 0, res, classes);
+  //Invert for viz
+  for (int i=0; i<classes.size(); i++) {
+    classes[i] = -1*classes[i];
+  }
 
-  cv::Mat map_mat(classes[3].cols(), classes[3].rows(), CV_32FC1, (void*)(classes[3].data()));
-  cv::Mat map_multichannel, map_byte, map_color;
-  map_mat.convertTo(map_byte, CV_8UC1);
-  cv::cvtColor(map_byte, map_multichannel, cv::COLOR_GRAY2BGR);
-  cv::LUT(map_multichannel, color_lut_, map_color);
+  cv::Mat map_color;
+  visualize(classes, map_color);
 
 	//Convert to ROS and publish
 	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
@@ -158,9 +150,9 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
 	map_pub_.publish(img_msg);
 }
 
-void TopDownRender::updateFilter(Eigen::ArrayXXc &top_down, Eigen::ArrayXXf &top_down_weights, std_msgs::Header &header) {
+void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
   auto start = std::chrono::high_resolution_clock::now();
-  filter_->update(top_down, top_down_weights);
+  filter_->update(top_down);
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
   ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
@@ -188,16 +180,20 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   ne.compute(*normals);
 
   //Generate top down render and remap
-  Eigen::ArrayXXc top_down(50,50);
-  Eigen::ArrayXXf top_down_weights(50,50);
-  top_down.setZero();
-  top_down_weights.setZero();
-	renderTopDown(cloud, normals, 1, top_down, top_down_weights);
-  cv::Mat top_down_img(top_down.cols(), top_down.rows(), CV_8UC1, (void*)top_down.data());
-  cv::LUT(top_down_img, flatten_lut_, top_down_img); //remap classes
+  std::vector<Eigen::ArrayXXf> top_down;
+  for (int i=0; i<map_->numClasses(); i++) {
+    Eigen::ArrayXXf img(50, 50);
+    top_down.push_back(img);
+  }
+
+  ROS_INFO_STREAM("Starting render");
+	renderTopDown(cloud, normals, 1, top_down);
 
   //convert pointcloud header to ROS header
   std_msgs::Header img_header;
+  publishTopDown(top_down, img_header);
+
+
 	pcl_conversions::fromPCL(cloud->header, img_header);
 
   auto stop = std::chrono::high_resolution_clock::now();
@@ -205,8 +201,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   ROS_INFO_STREAM("Render took " << dur.count() << " ms");
 
   publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
-  updateFilter(top_down, top_down_weights, img_header);
-  publishTopDown(top_down_img, img_header);
+  updateFilter(top_down, img_header);
 
 	//Normal visualization
 	//pcl::visualization::PCLVisualizer viewer("PCL Viewer");

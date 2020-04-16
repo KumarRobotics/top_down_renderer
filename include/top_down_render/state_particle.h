@@ -20,7 +20,7 @@ class StateParticle {
     void propagate(std::mt19937 *gen);
     State state();
     void setState(State s);
-    void computeWeight(Eigen::ArrayXXc &top_down_scan, Eigen::ArrayXXf &top_down_weights);
+    void computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan);
     float weight();
   private:
     //State
