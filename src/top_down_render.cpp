@@ -45,7 +45,7 @@ void TopDownRender::initialize() {
   nh_.getParam("svg_res", svg_res);
   nh_.getParam("raster_res", raster_res);
 
-  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, svg_res, raster_res);
+  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
   filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
 
   //DEBUG FOR VISUALIZATION
@@ -131,7 +131,7 @@ void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &im
 //Debug function
 void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header) {
   std::vector<Eigen::ArrayXXf> classes;
-  for (int i=0; i<6; i++) {
+  for (int i=0; i<map_->numClasses(); i++) {
     Eigen::ArrayXXf cls(h, w);
     classes.push_back(cls);
   }

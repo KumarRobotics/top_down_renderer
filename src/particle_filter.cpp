@@ -35,6 +35,11 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan) {
   }
   weights_ = weights_/weights_.sum(); //Renormalize
 
+  //Find the maximum likelihood particle
+  Eigen::VectorXf::Index max_weight;
+  weights_.maxCoeff(&max_weight);
+  max_likelihood_particle_ = particles_[max_weight];
+
   ROS_INFO_STREAM("particle reweighting complete");
   
   //Resample
@@ -42,10 +47,9 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan) {
     float running_sum = 0;
     float sample = static_cast<float>(i)/particles_.size();
     int j=0;
-    for (;; j++) {
+    for (; j<particles_.size(); j++) {
       running_sum += weights_[j];
       if (running_sum > sample || j>=particles_.size()) {
-        if (j == particles_.size()) j--;
         break; 
       }
     }
@@ -55,8 +59,15 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan) {
 }
 
 void ParticleFilter::visualize(cv::Mat &img) {
+  //Particle dist
   for (auto p : particles_) {
     cv::Point pt(p->state().x*map_->scale(), img.size().height-p->state().y*map_->scale());
     cv::circle(img, pt, 3, cv::Scalar(0,0,255), -1);
   }
+  //Max likelihood
+  cv::Point pt(max_likelihood_particle_->state().x*map_->scale(), 
+               img.size().height-max_likelihood_particle_->state().y*map_->scale());
+  cv::Point dir(cos(max_likelihood_particle_->state().theta)*5, 
+                sin(max_likelihood_particle_->state().theta)*5);
+  cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
 }

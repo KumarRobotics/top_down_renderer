@@ -18,7 +18,7 @@ namespace Eigen {
 
 class TopDownMap {
   public:
-    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, float scale, float res);
+    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float scale, float res);
 
     void getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     float scale();
@@ -29,6 +29,7 @@ class TopDownMap {
     float scale_; //pixels per meter for svg
     float resolution_; //meters per pixel for rasterized map
     int num_classes_;
+    int num_exclusive_classes_;
 
     void getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes);
     void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes);

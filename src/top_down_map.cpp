@@ -5,10 +5,11 @@
 #define NANOSVG_IMPLEMENTATION
 #include "top_down_render/nanosvg.h"
 
-TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, float scale, float res) {
+TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float scale, float res) {
   scale_ = scale;
   resolution_ = res;
   num_classes_ = num_classes;
+  num_exclusive_classes_ = num_ex;
   //parse svg
   NSVGimage* map;
 
@@ -89,6 +90,14 @@ void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::
     class_fills += 1;
     class_fills /= 2;
     cls_id++;
+  }
+
+  //Only one ground type per cell
+  for (int under_cls_id=0; under_cls_id<num_exclusive_classes_; under_cls_id++) {
+    for (int cls_id=under_cls_id+1; cls_id<num_exclusive_classes_; cls_id++) {
+      classes[under_cls_id] += 1-classes[cls_id];
+    }
+    classes[under_cls_id] = classes[under_cls_id].cwiseMin(1);
   }
 }
 

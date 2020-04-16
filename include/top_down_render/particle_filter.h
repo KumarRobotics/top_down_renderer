@@ -21,6 +21,7 @@ class ParticleFilter {
     std::vector<StateParticle*> particles_;
     std::vector<StateParticle*> new_particles_;
 
+    StateParticle* max_likelihood_particle_;
     std::mt19937 *gen_;
     Eigen::VectorXf weights_;
     TopDownMap* map_;
