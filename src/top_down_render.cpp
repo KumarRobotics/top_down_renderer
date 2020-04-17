@@ -9,6 +9,7 @@ void TopDownRender::initialize() {
 	it_ = new image_transport::ImageTransport(nh_);
 	img_pub_ = it_->advertise("img", 1);
 	scan_pub_ = it_->advertise("scan", 1);
+	geo_scan_pub_ = it_->advertise("geo_scan", 1);
 	map_pub_ = it_->advertise("map_max", 1);
 
   flatten_lut_ = cv::Mat::zeros(256, 1, CV_8UC1);
@@ -45,7 +46,7 @@ void TopDownRender::initialize() {
   nh_.getParam("svg_res", svg_res);
   nh_.getParam("raster_res", raster_res);
 
-  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
+  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, 3, svg_res, raster_res);
   filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
 
   //DEBUG FOR VISUALIZATION
@@ -57,9 +58,57 @@ void TopDownRender::initialize() {
   //}
 }
 
-void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-									                pcl::PointCloud<pcl::Normal>::Ptr& normals,	
-									                float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
+void TopDownRender::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+									                         float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
+  if (imgs.size() < 2) return;
+  size_t img_size = imgs[0].cols();
+
+  for (int i=0; i<imgs.size(); i++) {
+    imgs[i].setZero();
+  }
+
+  for (size_t idx=0; idx<cloud->width; idx++) {
+    Eigen::Vector3f last_pt(0,0,0); 
+    Eigen::Vector3f pt(0,0,0); 
+    Eigen::Vector2i last_ind(img_size/2, img_size/2);
+    bool last_high_grad = false;
+
+    //Scan up a vertical scan line
+    for (size_t idy=0; idy<cloud->height; idy++) {
+      pcl::PointXYZRGB pcl_pt = cloud->at(idx, idy);
+      pt << pcl_pt.x, pcl_pt.y, pcl_pt.z;
+      if (pt[0] == 0 && pt[1] == 0) continue;
+      int x_ind = std::round(pt[0]/side_length)+img_size/2;
+      int y_ind = std::round(pt[1]/side_length)+img_size/2;
+
+      float dist = (pt-last_pt).head<2>().norm(); //dist in xy plane
+      float slope = abs(pt(2)-last_pt(2))/dist;
+      if (slope > 1) {
+        if (x_ind >= 0 && x_ind < img_size && y_ind >= 0 && y_ind < img_size) {
+          imgs[1](y_ind, x_ind) += 1;
+        }
+        last_high_grad = true;
+      } else if (slope < 0.3 && last_high_grad == false) {
+        Eigen::Vector2i diff = Eigen::Vector2i(x_ind, y_ind)-last_ind;
+        for (float i=0; i<1; i+=1./diff.norm()) {
+          Eigen::Vector2i interp_ind(round(last_ind[0]+i*diff[0]), round(last_ind[1]+i*diff[1]));
+          if (interp_ind[0] >= 0 && interp_ind[0] < img_size && interp_ind[1] >= 0 && 
+              interp_ind[1] < img_size) {
+            imgs[0](interp_ind[1], interp_ind[0]) += 1;
+          }
+        }
+      } else {
+        last_high_grad = false;
+      }
+      last_pt = pt;
+      last_ind << x_ind, y_ind;
+    }
+  }
+}
+
+void TopDownRender::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+									                        pcl::PointCloud<pcl::Normal>::Ptr& normals,	
+									                        float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 1) return;
   size_t img_size = imgs[0].cols();
 
@@ -84,7 +133,7 @@ void TopDownRender::renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::Const
   }
 }
 
-void TopDownRender::publishTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
+void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
   cv::Mat map_color;
   visualize(top_down, map_color);
 
@@ -92,6 +141,25 @@ void TopDownRender::publishTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_m
 	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
   img_msg->header = header;
 	scan_pub_.publish(img_msg);
+}
+
+void TopDownRender::publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
+  cv::Mat map_color;
+  visualize(top_down, map_color);
+
+	//Convert to ROS and publish
+	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
+  img_msg->header = header;
+	geo_scan_pub_.publish(img_msg);
+}
+
+cv::Mat TopDownRender::visualizeAnalog(Eigen::ArrayXXf &cls, float scale) {
+  cv::Mat map_mat(cls.cols(), cls.rows(), CV_32FC1, (void*)cls.data());
+  cv::Mat map_char, map_color;
+  map_mat.convertTo(map_char, CV_8UC1, 255./scale);
+  cv::cvtColor(map_char, map_color, cv::COLOR_GRAY2BGR);
+
+  return map_color;
 }
 
 void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img) {
@@ -180,19 +248,24 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   ne.compute(*normals);
 
   //Generate top down render and remap
-  std::vector<Eigen::ArrayXXf> top_down;
+  std::vector<Eigen::ArrayXXf> top_down, top_down_geo;
   for (int i=0; i<map_->numClasses(); i++) {
     Eigen::ArrayXXf img(50, 50);
     top_down.push_back(img);
   }
+  for (int i=0; i<2; i++) {
+    Eigen::ArrayXXf img(50, 50);
+    top_down_geo.push_back(img);
+  }
 
   ROS_INFO_STREAM("Starting render");
-	renderTopDown(cloud, normals, 1, top_down);
+	renderSemanticTopDown(cloud, normals, 1, top_down);
+  renderGeometricTopDown(cloud, 1, top_down_geo);
 
   //convert pointcloud header to ROS header
   std_msgs::Header img_header;
-  publishTopDown(top_down, img_header);
-
+  publishSemanticTopDown(top_down, img_header);
+  publishGeometricTopDown(top_down_geo, img_header);
 
 	pcl_conversions::fromPCL(cloud->header, img_header);
 

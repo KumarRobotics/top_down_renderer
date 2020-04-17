@@ -30,6 +30,7 @@ class TopDownRender {
     ros::Subscriber pc_sub_;
 		image_transport::Publisher img_pub_;
 		image_transport::Publisher scan_pub_;
+		image_transport::Publisher geo_scan_pub_;
 		image_transport::Publisher map_pub_;
 
     cv::Mat flatten_lut_;
@@ -40,12 +41,16 @@ class TopDownRender {
 
     bool normal_filter_ = true;
 
-    void publishTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
+    void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
+    void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header);
-		void renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-											 pcl::PointCloud<pcl::Normal>::Ptr& normals,	
-											 float side_length, std::vector<Eigen::ArrayXXf> &imgs);
+		void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+											         pcl::PointCloud<pcl::Normal>::Ptr& normals,	
+											         float side_length, std::vector<Eigen::ArrayXXf> &imgs);
+		void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+											          float side_length, std::vector<Eigen::ArrayXXf> &imgs);
     void visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img);
+    cv::Mat visualizeAnalog(Eigen::ArrayXXf &cls, float scale);
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr&);
 };
