@@ -43,13 +43,15 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan) {
   ROS_INFO_STREAM("particle reweighting complete");
   
   //Resample
+  std::uniform_real_distribution<float> shift_dist(0.,1.);
+  float shift = shift_dist(*gen_); //Add a random shift
   for (int i=0; i<particles_.size(); i++) {
     float running_sum = 0;
-    float sample = static_cast<float>(i)/particles_.size();
+    float sample = (static_cast<float>(i)+shift)/particles_.size();
     int j=0;
     for (; j<particles_.size(); j++) {
       running_sum += weights_[j];
-      if (running_sum > sample || j>=particles_.size()) {
+      if (running_sum > sample || j == particles_.size()-1) {
         break; 
       }
     }

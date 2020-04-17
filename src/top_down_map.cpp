@@ -70,6 +70,47 @@ int TopDownMap::numClasses() {
   return num_classes_;
 }
 
+//For each cell, compute the distance to other cells
+void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
+  ROS_INFO_STREAM("Computing distance maps...");
+  //generate the sample grid
+  Eigen::Array2Xf grid(2, classes[0].rows()*2*classes[0].cols()*2);
+  samplePts(Eigen::Vector2f(0, 0), 0, grid, classes[0].cols()*2, classes[0].rows()*2, 1);
+
+  //This is really inefficient, but it's precomputed so who cares
+  for (int cls_id=0; cls_id<classes.size(); cls_id++) {
+    for (int row=0; row<classes[cls_id].rows(); row++) {
+      for (int col=0; col<classes[cls_id].cols(); col++) {
+        if (classes[cls_id](row, col) == 0) continue;
+
+        float closest_dist = 50; //max distance allowed
+
+        //Iterate through all pts
+        for (int comp_row=-closest_dist; comp_row<=closest_dist; comp_row++) {
+          for (int comp_col=-closest_dist; comp_col<=closest_dist; comp_col++) {
+            if (comp_row+row >= classes[cls_id].rows() || comp_col+col >= classes[cls_id].cols() ||
+                comp_row+row < 0 || comp_col+col < 0) continue;
+            //First approximation
+            if (abs(comp_row) > closest_dist || abs(comp_col) > closest_dist) continue;
+            //Verify that pt is of the appropriate class
+            if (classes[cls_id](comp_row+row, comp_col+col) > 0) continue;
+
+            int ind = comp_row+classes[cls_id].rows() + (comp_col+classes[cls_id].cols())*2*classes[cls_id].rows();
+
+            float dist = grid.matrix().col(ind).norm();
+            if (dist < closest_dist) {
+              closest_dist = dist;
+            }
+          }
+        }
+        classes[cls_id](row, col) = closest_dist;
+      }
+    }
+    classes[cls_id] *= resolution_;
+    ROS_INFO_STREAM("class " << cls_id << " complete");
+  }
+}
+
 void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes) {
   if (classes.size() < poly_.size()) return;
   //Algorithm modified from https://en.wikipedia.org/wiki/Even-odd_rule
@@ -99,6 +140,8 @@ void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::
     }
     classes[under_cls_id] = classes[under_cls_id].cwiseMin(1);
   }
+
+  computeDists(classes);
 }
 
 void TopDownMap::samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res) {

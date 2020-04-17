@@ -2,7 +2,7 @@
 <launch>
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
     <remap from="~/pc" to="/husky/lidar_points"/>
-    <param name="raster_res" value="0.5"/>
+    <param name="raster_res" value="1"/>
     
     <!--
     <param name="map" value="$(find top_down_render)/maps/pennovation"/>

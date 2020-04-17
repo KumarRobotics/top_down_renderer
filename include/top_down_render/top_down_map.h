@@ -32,6 +32,7 @@ class TopDownMap {
     int num_exclusive_classes_;
 
     void getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes);
+    void computeDists(std::vector<Eigen::ArrayXXf> &classes);
     void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes);
     void samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res);
 };

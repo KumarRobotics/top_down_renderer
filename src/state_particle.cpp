@@ -19,8 +19,8 @@ StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDo
 }
 
 void StateParticle::propagate(std::mt19937 *gen) {
-  std::normal_distribution<float> disp_dist{0, 0.5};
-  std::normal_distribution<float> theta_dist{0, M_PI/20};
+  std::normal_distribution<float> disp_dist{0, 0.3};
+  std::normal_distribution<float> theta_dist{0, M_PI/30};
   
   state_.x = std::max(std::min(width_, state_.x+disp_dist(*gen)), static_cast<float>(0));
   state_.y = std::max(std::min(height_, state_.y+disp_dist(*gen)), static_cast<float>(0));
@@ -52,7 +52,7 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan) {
   float normalization = 0;
   Eigen::ArrayXXf tmp;
   for (int i=0; i<map_->numClasses(); i++) {
-    tmp = top_down_scan[i] * classes[i];
+    tmp = top_down_scan[i] * classes[i]*0.01;
     cost += tmp.sum();
     normalization += top_down_scan[i].sum();
   }
