@@ -39,20 +39,32 @@ float StateParticle::weight() {
   return weight_;
 }
 
-void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan) {
+void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, std::vector<Eigen::ArrayXXf> &top_down_geo) {
   Eigen::Vector2f center(state_.x, state_.y);
   std::vector<Eigen::ArrayXXf> classes;
   for (int i=0; i<map_->numClasses(); i++) {
     classes.push_back(Eigen::ArrayXXf(top_down_scan[0].rows(), top_down_scan[0].cols()));
   }
+  std::vector<Eigen::ArrayXXf> geo_cls;
+  for (int i=0; i<2; i++) {
+    geo_cls.push_back(Eigen::ArrayXXf(top_down_scan[0].rows(), top_down_scan[0].cols()));
+  }
 
   map_->getLocalMap(center, state_.theta, 1, classes);
+  map_->getLocalGeoMap(center, state_.theta, 1, geo_cls);
 
   float cost = 0;
   float normalization = 0;
   Eigen::ArrayXXf tmp;
-  for (int i=0; i<map_->numClasses(); i++) {
-    tmp = top_down_scan[i] * classes[i]*0.01;
+  //for (int i=0; i<map_->numClasses(); i++) {
+  //  //semantic cost
+  //  tmp = top_down_scan[i] * classes[i]*0.01;
+  //  cost += tmp.sum();
+  //  normalization += top_down_scan[i].sum();
+  //}
+  for (int i=0; i<2; i++) {
+    //geometric cost
+    tmp = top_down_geo[i] * geo_cls[i]*0.001;
     cost += tmp.sum();
     normalization += top_down_scan[i].sum();
   }

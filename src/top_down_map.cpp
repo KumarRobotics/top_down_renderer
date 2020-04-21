@@ -57,8 +57,18 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
                               static_cast<int>(map->width/resolution_/scale_));; //0 inside obstacles, 1 elsewhere
     class_maps_.push_back(class_map);
   }
+  for (int i=0; i<2; i++) {
+    Eigen::ArrayXXf geo_map(static_cast<int>(map->height/resolution_/scale_), 
+                            static_cast<int>(map->width/resolution_/scale_));; //0 inside obstacles, 1 elsewhere
+    geo_maps_.push_back(geo_map);
+  }
+
   ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
   getRasterMap(Eigen::Vector2f(map->width/2/scale_, map->height/2/scale_), 0, resolution_, class_maps_);
+  getGeoRasterMap(Eigen::Vector2f(map->width/2/scale_, map->height/2/scale_), 0, resolution_, geo_maps_);
+  //Do this after so we can reuse maps
+  computeDists(class_maps_);
+  computeDists(geo_maps_);
   ROS_INFO_STREAM("Rasterization complete");
 }
 
@@ -141,7 +151,6 @@ void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::
     classes[under_cls_id] = classes[under_cls_id].cwiseMin(1);
   }
 
-  computeDists(classes);
 }
 
 void TopDownMap::samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res) {
@@ -177,6 +186,25 @@ void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, std:
   getClasses(pts, classes);
 }
 
+void TopDownMap::getGeoRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &geo_cls) {
+  if (geo_cls.size() < 2) return;
+
+  for (int i=0; i<geo_cls.size(); i++) {
+    geo_cls[i].setZero();
+  }
+
+  for (int i=3; i<num_classes_; i++) {
+    geo_cls[1] += 1-class_maps_[i]; //geometric classes
+  }
+
+  //Re-binarize
+  for (int i=0; i<geo_cls.size(); i++) {
+    geo_cls[i] = geo_cls[i].cwiseMin(1);
+    geo_cls[i] = 1-geo_cls[i];
+  }
+  geo_cls[0] = 1-geo_cls[1];
+}
+
 void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
   if (dists.size() < 1) return;
   Eigen::Array2Xf pts(2, dists[0].rows()*dists[0].cols());
@@ -190,6 +218,26 @@ void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::
       if (pts_int(0, idx) >= 0 && pts_int(0, idx) < class_maps_[cls].rows() &&
           pts_int(1, idx) >= 0 && pts_int(1, idx) < class_maps_[cls].cols()) {
         dists[cls](idx) = class_maps_[cls](pts_int(0, idx), pts_int(1, idx));
+      } else {
+        dists[cls](idx) = 100;
+      }
+    }
+  }
+}
+
+void TopDownMap::getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
+  if (dists.size() < 1) return;
+  Eigen::Array2Xf pts(2, dists[0].rows()*dists[0].cols());
+  samplePts(center/resolution_, rot, pts, dists[0].cols(), dists[0].rows(), res/resolution_);
+
+  //Generate list of indices
+  Eigen::Array2Xi pts_int = pts.round().cast<int>();
+
+  for (int cls=0; cls<dists.size(); cls++) {
+    for (int idx=0; idx<dists[0].rows()*dists[0].cols(); idx++) {
+      if (pts_int(0, idx) >= 0 && pts_int(0, idx) < geo_maps_[cls].rows() &&
+          pts_int(1, idx) >= 0 && pts_int(1, idx) < geo_maps_[cls].cols()) {
+        dists[cls](idx) = geo_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
         dists[cls](idx) = 100;
       }

@@ -46,7 +46,7 @@ void TopDownRender::initialize() {
   nh_.getParam("svg_res", svg_res);
   nh_.getParam("raster_res", raster_res);
 
-  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, 3, svg_res, raster_res);
+  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
   filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
 
   //DEBUG FOR VISUALIZATION
@@ -199,11 +199,12 @@ void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &im
 //Debug function
 void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header) {
   std::vector<Eigen::ArrayXXf> classes;
-  for (int i=0; i<map_->numClasses(); i++) {
+  for (int i=0; i<2; i++) {
     Eigen::ArrayXXf cls(h, w);
     classes.push_back(cls);
   }
-  map_->getLocalMap(center, 0, res, classes);
+  map_->getLocalGeoMap(center, 0, res, classes);
+
   //Invert for viz
   for (int i=0; i<classes.size(); i++) {
     classes[i] = -1*classes[i];
@@ -218,9 +219,11 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
 	map_pub_.publish(img_msg);
 }
 
-void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
+void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
+                                 std::vector<Eigen::ArrayXXf> &top_down_geo, 
+                                 std_msgs::Header &header) {
   auto start = std::chrono::high_resolution_clock::now();
-  filter_->update(top_down);
+  filter_->update(top_down, top_down_geo);
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
   ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
@@ -274,7 +277,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   ROS_INFO_STREAM("Render took " << dur.count() << " ms");
 
   publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
-  updateFilter(top_down, img_header);
+  updateFilter(top_down, top_down_geo, img_header);
 
 	//Normal visualization
 	//pcl::visualization::PCLVisualizer viewer("PCL Viewer");

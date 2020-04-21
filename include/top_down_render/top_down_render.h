@@ -51,7 +51,8 @@ class TopDownRender {
 											          float side_length, std::vector<Eigen::ArrayXXf> &imgs);
     void visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img);
     cv::Mat visualizeAnalog(Eigen::ArrayXXf &cls, float scale);
-    void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
+    void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
+                      std::vector<Eigen::ArrayXXf> &top_down_geo, std_msgs::Header &header);
     void pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr&);
 };
 
