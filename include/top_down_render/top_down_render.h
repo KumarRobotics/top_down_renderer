@@ -20,10 +20,6 @@
 #include "top_down_render/top_down_map.h"
 #include "top_down_render/particle_filter.h"
 
-typedef std::priority_queue<PointXYZClassNormal, 
-                            std::vector<PointXYZClassNormal>, 
-                            std::less<PointXYZClassNormal>> pt_q_type;
-
 class TopDownRender {
   public:
     TopDownRender(ros::NodeHandle &nh);
@@ -34,25 +30,29 @@ class TopDownRender {
     ros::Subscriber pc_sub_;
 		image_transport::Publisher img_pub_;
 		image_transport::Publisher scan_pub_;
+		image_transport::Publisher geo_scan_pub_;
 		image_transport::Publisher map_pub_;
 
     cv::Mat flatten_lut_;
     cv::Mat color_lut_;
     cv::Mat background_img_;
-    std::vector<std::vector<pt_q_type>> org_pc_;
     TopDownMap *map_;
     ParticleFilter *filter_;
 
     bool normal_filter_ = true;
 
-    void publishTopDown(cv::Mat& top_down_img, std_msgs::Header &header);
+    void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
+    void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header);
-    void publishHeatMap(Eigen::ArrayXXc &top_down, float local_res, float heatmap_res, cv::Rect roi, std_msgs::Header &header);
-		void renderTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-											 pcl::PointCloud<pcl::Normal>::Ptr& normals,	
-											 float side_length, Eigen::ArrayXXc &img,
-                       Eigen::ArrayXXf &weights);
-    void updateFilter(Eigen::ArrayXXc &top_down, Eigen::ArrayXXf &top_down_weights, std_msgs::Header &header);
+		void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+											         pcl::PointCloud<pcl::Normal>::Ptr& normals,	
+											         float side_length, std::vector<Eigen::ArrayXXf> &imgs);
+		void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+											          float side_length, std::vector<Eigen::ArrayXXf> &imgs);
+    void visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img);
+    cv::Mat visualizeAnalog(Eigen::ArrayXXf &cls, float scale);
+    void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
+                      std::vector<Eigen::ArrayXXf> &top_down_geo, std_msgs::Header &header);
     void pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr&);
 };
 

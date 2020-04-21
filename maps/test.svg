@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   id="svg2"
+   width="6"
+   height="4"
+   viewBox="0 0 6 4"
+   sodipodi:docname="test.svg"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   inkscape:export-filename="/home/ian/catkin/surveying_ws/src/top_down_render/maps/test.png"
+   inkscape:export-xdpi="399.96301"
+   inkscape:export-ydpi="399.96301">
+  <metadata
+     id="metadata8">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs6" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="2160"
+     inkscape:window-height="3812"
+     id="namedview4"
+     showgrid="false"
+     inkscape:zoom="163.84"
+     inkscape:cx="1.3162086"
+     inkscape:cy="1.5287471"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <rect
+     style="opacity:0.69800002;fill:#006400;fill-opacity:0.42745098;stroke:#ff00fd;stroke-width:0.01438073;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     id="rect1563"
+     width="2.0561352"
+     height="4.0030594"
+     x="0.013938817"
+     y="0.0008290477" />
+  <rect
+     style="opacity:0.69800002;fill:#006400;fill-opacity:0.42745098;stroke:#ff00fd;stroke-width:0.01020407;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     id="rect1563-3"
+     width="2.0603118"
+     height="2.0113864"
+     x="3.9381058"
+     y="0.012739397" />
+</svg>

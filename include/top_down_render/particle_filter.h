@@ -14,18 +14,17 @@ class ParticleFilter {
   public:
     ParticleFilter(int N, float width, float height, TopDownMap *map);
     void propagate();
-    void update(Eigen::ArrayXXc &top_down_scan, Eigen::ArrayXXf &top_down_weights);
+    void update(std::vector<Eigen::ArrayXXf> &top_down_scan, std::vector<Eigen::ArrayXXf> &top_down_geo);
     void visualize(cv::Mat &img);
   private:
     int num_particles_;
     std::vector<StateParticle*> particles_;
     std::vector<StateParticle*> new_particles_;
 
+    StateParticle* max_likelihood_particle_;
     std::mt19937 *gen_;
     Eigen::VectorXf weights_;
     TopDownMap* map_;
-
-    void updateParticle(StateParticle* particle, Eigen::ArrayXXc &top_down_scan);
 };
 
 #endif //PARTICLE_FILTER_H_
