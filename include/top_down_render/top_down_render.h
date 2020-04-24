@@ -8,6 +8,7 @@
 #include <chrono>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/features/integral_image_normal.h>
@@ -28,11 +29,14 @@ class TopDownRender {
     ros::NodeHandle nh_;
 		image_transport::ImageTransport *it_;
     ros::Subscriber pc_sub_;
+    ros::Subscriber gt_pose_sub_;
 		image_transport::Publisher img_pub_;
 		image_transport::Publisher scan_pub_;
 		image_transport::Publisher geo_scan_pub_;
 		image_transport::Publisher map_pub_;
 
+    Eigen::Affine2f gt_pose_;
+    cv::Point map_center_;
     cv::Mat flatten_lut_;
     cv::Mat color_lut_;
     cv::Mat background_img_;
@@ -54,6 +58,7 @@ class TopDownRender {
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
                       std::vector<Eigen::ArrayXXf> &top_down_geo, std_msgs::Header &header);
     void pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr&);
+    void gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose);
 };
 
 #endif //TOP_DOWN_RENDER_H_

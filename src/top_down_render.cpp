@@ -6,6 +6,7 @@ TopDownRender::TopDownRender(ros::NodeHandle &nh) {
 
 void TopDownRender::initialize() {
   pc_sub_ = nh_.subscribe<pcl::PointCloud<pcl::PointXYZRGB>>("pc", 10, &TopDownRender::pcCallback, this);
+  gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, &TopDownRender::gtPoseCallback, this);
 	it_ = new image_transport::ImageTransport(nh_);
 	img_pub_ = it_->advertise("img", 1);
 	scan_pub_ = it_->advertise("scan", 1);
@@ -46,14 +47,23 @@ void TopDownRender::initialize() {
   nh_.getParam("svg_res", svg_res);
   nh_.getParam("raster_res", raster_res);
 
+  int svg_origin_x, svg_origin_y;
+  nh_.getParam("svg_origin_x", svg_origin_x);
+  nh_.getParam("svg_origin_y", svg_origin_y);
+  map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
+
   map_ = new TopDownMap(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
   filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
+
+  ROS_INFO_STREAM("Setup complete");
 
   //DEBUG FOR VISUALIZATION
   //ros::Rate rate(1);
   //while (ros::ok()) {
+  //  ROS_INFO("Debug loop");
   //  std_msgs::Header img_header;
-  //  publishLocalMap(100, 150, Eigen::Vector2f(631/2.64, 264/2.64), 1., img_header);
+  //  //image 1006 x 633
+  //  publishLocalMap(633/2.64, 1006/2.64, Eigen::Vector2f(1006/2/2.64, 633/2/2.64), 1., img_header);
   //  rate.sleep();
   //}
 }
@@ -209,6 +219,7 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
   for (int i=0; i<classes.size(); i++) {
     classes[i] = -1*classes[i];
   }
+  ROS_INFO("viz");
 
   cv::Mat map_color;
   visualize(classes, map_color);
@@ -233,6 +244,15 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   cv::Mat background_copy = background_img_.clone();
   filter_->visualize(background_copy);
 
+  //Draw gt pose
+  Eigen::Vector2f front(2,0);
+  front = gt_pose_.linear()*front;
+  cv::Point img_rot(-front[0]*map_->scale(), front[1]*map_->scale());
+  cv::Point img_pos(-gt_pose_.translation()[0]*map_->scale(), gt_pose_.translation()[1]*map_->scale());
+  cv::arrowedLine(background_copy, map_center_+img_pos-img_rot, map_center_+img_pos+img_rot, 
+                  cv::Scalar(0,255,0), 2, CV_AA, 0, 0.3);
+
+  //Publish visualization
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_copy).toImageMsg();
   img_msg->header = header;
 	img_pub_.publish(img_msg);
@@ -276,7 +296,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
   ROS_INFO_STREAM("Render took " << dur.count() << " ms");
 
-  publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
+  //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
   updateFilter(top_down, top_down_geo, img_header);
 
 	//Normal visualization
@@ -290,3 +310,22 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
 	//  viewer.spinOnce ();
 	//}
 }
+
+void TopDownRender::gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose) {
+  //Convert to Eigen
+  Eigen::Affine3f gt_pose3 = Eigen::Affine3f::Identity();
+  gt_pose3 *= Eigen::Quaternionf(pose->pose.orientation.w, 
+                                 pose->pose.orientation.x, 
+                                 pose->pose.orientation.y, 
+                                 pose->pose.orientation.z);
+  gt_pose3.translation() << pose->pose.position.x, pose->pose.position.y, pose->pose.position.z;
+
+  //Now we have to project into 2D
+  Eigen::Vector3f x_axis = gt_pose3.linear()*Eigen::Vector3f::UnitX();
+  float theta = atan2(x_axis[1], x_axis[0]);
+
+  gt_pose_.translation() = gt_pose3.translation().head(2);
+  gt_pose_.linear() << cos(theta), -sin(theta),
+                       sin(theta), cos(theta);
+}
+
