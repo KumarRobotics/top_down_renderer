@@ -7,11 +7,11 @@ TopDownRender::TopDownRender(ros::NodeHandle &nh) {
 void TopDownRender::initialize() {
   pc_sub_ = nh_.subscribe<pcl::PointCloud<pcl::PointXYZRGB>>("pc", 10, &TopDownRender::pcCallback, this);
   gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, &TopDownRender::gtPoseCallback, this);
-	it_ = new image_transport::ImageTransport(nh_);
-	img_pub_ = it_->advertise("img", 1);
-	scan_pub_ = it_->advertise("scan", 1);
-	geo_scan_pub_ = it_->advertise("geo_scan", 1);
-	map_pub_ = it_->advertise("map_max", 1);
+  it_ = new image_transport::ImageTransport(nh_);
+  img_pub_ = it_->advertise("img", 1);
+  scan_pub_ = it_->advertise("scan", 1);
+  geo_scan_pub_ = it_->advertise("geo_scan", 1);
+  map_pub_ = it_->advertise("map_max", 1);
 
   flatten_lut_ = cv::Mat::zeros(256, 1, CV_8UC1);
   flatten_lut_.at<uint8_t>(100) = 2; //road
@@ -69,7 +69,7 @@ void TopDownRender::initialize() {
 }
 
 void TopDownRender::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-									                         float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
+                                           float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 2) return;
   size_t img_size = imgs[0].cols();
 
@@ -117,8 +117,8 @@ void TopDownRender::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRG
 }
 
 void TopDownRender::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-									                        pcl::PointCloud<pcl::Normal>::Ptr& normals,	
-									                        float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
+                                          pcl::PointCloud<pcl::Normal>::Ptr& normals, 
+                                          float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 1) return;
   size_t img_size = imgs[0].cols();
 
@@ -147,20 +147,20 @@ void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_dow
   cv::Mat map_color;
   visualize(top_down, map_color);
 
-	//Convert to ROS and publish
-	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
+  //Convert to ROS and publish
+  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
   img_msg->header = header;
-	scan_pub_.publish(img_msg);
+  scan_pub_.publish(img_msg);
 }
 
 void TopDownRender::publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
   cv::Mat map_color;
   visualize(top_down, map_color);
 
-	//Convert to ROS and publish
-	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
+  //Convert to ROS and publish
+  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
   img_msg->header = header;
-	geo_scan_pub_.publish(img_msg);
+  geo_scan_pub_.publish(img_msg);
 }
 
 cv::Mat TopDownRender::visualizeAnalog(Eigen::ArrayXXf &cls, float scale) {
@@ -224,17 +224,17 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
   cv::Mat map_color;
   visualize(classes, map_color);
 
-	//Convert to ROS and publish
-	sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
+  //Convert to ROS and publish
+  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
   img_msg->header = header;
-	map_pub_.publish(img_msg);
+  map_pub_.publish(img_msg);
 }
 
 void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
-                                 std::vector<Eigen::ArrayXXf> &top_down_geo, 
+                                 std::vector<Eigen::ArrayXXf> &top_down_geo, float res,
                                  std_msgs::Header &header) {
   auto start = std::chrono::high_resolution_clock::now();
-  filter_->update(top_down, top_down_geo);
+  filter_->update(top_down, top_down_geo, res);
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
   ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
@@ -255,7 +255,7 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   //Publish visualization
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_copy).toImageMsg();
   img_msg->header = header;
-	img_pub_.publish(img_msg);
+  img_pub_.publish(img_msg);
 }
 
 void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud) {
@@ -266,7 +266,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   ne.setNormalEstimationMethod(ne.AVERAGE_3D_GRADIENT);
   ne.setMaxDepthChangeFactor(1.0);
   ne.setNormalSmoothingSize(10.0);
-	ne.setBorderPolicy(ne.BORDER_POLICY_MIRROR);
+  ne.setBorderPolicy(ne.BORDER_POLICY_MIRROR);
   ne.setInputCloud(cloud);
   ne.compute(*normals);
 
@@ -282,7 +282,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   }
 
   ROS_INFO_STREAM("Starting render");
-	renderSemanticTopDown(cloud, normals, 1, top_down);
+  renderSemanticTopDown(cloud, normals, 1, top_down);
   renderGeometricTopDown(cloud, 1, top_down_geo);
 
   //convert pointcloud header to ROS header
@@ -290,25 +290,25 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   publishSemanticTopDown(top_down, img_header);
   publishGeometricTopDown(top_down_geo, img_header);
 
-	pcl_conversions::fromPCL(cloud->header, img_header);
+  pcl_conversions::fromPCL(cloud->header, img_header);
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
   ROS_INFO_STREAM("Render took " << dur.count() << " ms");
 
   //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
-  updateFilter(top_down, top_down_geo, img_header);
+  updateFilter(top_down, top_down_geo, 1, img_header);
 
-	//Normal visualization
-	//pcl::visualization::PCLVisualizer viewer("PCL Viewer");
-	//viewer.setBackgroundColor (0.0, 0.0, 0.0);
-	//viewer.addPointCloud<pcl::PointXYZRGB>(cloud);
-	//viewer.addPointCloudNormals<pcl::PointXYZRGB, pcl::Normal>(cloud, normals, 1, 1, "normals");
+  //Normal visualization
+  //pcl::visualization::PCLVisualizer viewer("PCL Viewer");
+  //viewer.setBackgroundColor (0.0, 0.0, 0.0);
+  //viewer.addPointCloud<pcl::PointXYZRGB>(cloud);
+  //viewer.addPointCloudNormals<pcl::PointXYZRGB, pcl::Normal>(cloud, normals, 1, 1, "normals");
 
-	//while (!viewer.wasStopped ())
-	//{
-	//  viewer.spinOnce ();
-	//}
+  //while (!viewer.wasStopped ())
+  //{
+  //  viewer.spinOnce ();
+  //}
 }
 
 void TopDownRender::gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose) {

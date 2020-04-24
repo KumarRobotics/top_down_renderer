@@ -27,13 +27,13 @@ class TopDownRender {
     void initialize();
   private:
     ros::NodeHandle nh_;
-		image_transport::ImageTransport *it_;
+    image_transport::ImageTransport *it_;
     ros::Subscriber pc_sub_;
     ros::Subscriber gt_pose_sub_;
-		image_transport::Publisher img_pub_;
-		image_transport::Publisher scan_pub_;
-		image_transport::Publisher geo_scan_pub_;
-		image_transport::Publisher map_pub_;
+    image_transport::Publisher img_pub_;
+    image_transport::Publisher scan_pub_;
+    image_transport::Publisher geo_scan_pub_;
+    image_transport::Publisher map_pub_;
 
     Eigen::Affine2f gt_pose_;
     cv::Point map_center_;
@@ -48,15 +48,15 @@ class TopDownRender {
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header);
-		void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-											         pcl::PointCloud<pcl::Normal>::Ptr& normals,	
-											         float side_length, std::vector<Eigen::ArrayXXf> &imgs);
-		void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-											          float side_length, std::vector<Eigen::ArrayXXf> &imgs);
+    void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+                               pcl::PointCloud<pcl::Normal>::Ptr& normals,  
+                               float side_length, std::vector<Eigen::ArrayXXf> &imgs);
+    void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+                                float side_length, std::vector<Eigen::ArrayXXf> &imgs);
     void visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img);
     cv::Mat visualizeAnalog(Eigen::ArrayXXf &cls, float scale);
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
-                      std::vector<Eigen::ArrayXXf> &top_down_geo, std_msgs::Header &header);
+                      std::vector<Eigen::ArrayXXf> &top_down_geo, float res, std_msgs::Header &header);
     void pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr&);
     void gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose);
 };
