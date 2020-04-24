@@ -44,6 +44,7 @@ class TopDownRender {
     ParticleFilter *filter_;
 
     bool normal_filter_ = true;
+    float current_res_ = 2;
 
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);

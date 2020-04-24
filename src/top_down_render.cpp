@@ -282,8 +282,8 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   }
 
   ROS_INFO_STREAM("Starting render");
-  renderSemanticTopDown(cloud, normals, 1, top_down);
-  renderGeometricTopDown(cloud, 1, top_down_geo);
+  renderSemanticTopDown(cloud, normals, current_res_, top_down);
+  renderGeometricTopDown(cloud, current_res_, top_down_geo);
 
   //convert pointcloud header to ROS header
   std_msgs::Header img_header;
@@ -297,7 +297,17 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   ROS_INFO_STREAM("Render took " << dur.count() << " ms");
 
   //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
-  updateFilter(top_down, top_down_geo, 1, img_header);
+  updateFilter(top_down, top_down_geo, current_res_, img_header);
+  Eigen::Matrix2f cov;
+  filter_->computeCov(cov);
+
+  if (std::max(cov(0,0), cov(1,1)) > 15 && current_res_ < 2) {
+    //cov big, expand local region
+    current_res_ += 0.05;
+  } else if (current_res_ > 0.5) {
+    //we gucci, shrink to refine
+    current_res_ -= 0.02;
+  }
 
   //Normal visualization
   //pcl::visualization::PCLVisualizer viewer("PCL Viewer");

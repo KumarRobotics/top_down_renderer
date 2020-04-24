@@ -61,6 +61,16 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   particles_.swap(new_particles_);
 }
 
+void ParticleFilter::computeCov(Eigen::Matrix2f &cov) {
+  cov.setZero();
+  for (auto particle : particles_) {
+    Eigen::Vector2f state(particle->state().x-max_likelihood_particle_->state().x, 
+                          particle->state().y-max_likelihood_particle_->state().y);
+    cov += state*state.transpose();
+  }
+  cov /= particles_.size()-1;
+}
+
 void ParticleFilter::visualize(cv::Mat &img) {
   //Particle dist
   for (auto p : particles_) {

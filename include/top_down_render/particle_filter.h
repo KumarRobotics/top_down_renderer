@@ -16,6 +16,7 @@ class ParticleFilter {
     void propagate();
     void update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                 std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
+    void computeCov(Eigen::Matrix2f &cov);
     void visualize(cv::Mat &img);
   private:
     int num_particles_;
