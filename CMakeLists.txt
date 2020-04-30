@@ -152,8 +152,11 @@ add_executable(
   src/top_down_render_node.cpp 
   src/top_down_render.cpp 
   src/top_down_map.cpp
+  src/top_down_map_polar.cpp
   src/state_particle.cpp
   src/particle_filter.cpp
+  src/scan_renderer.cpp
+  src/scan_renderer_polar.cpp
 )
 
 ## Rename C++ executable without prefix

@@ -24,7 +24,7 @@ class TopDownMap {
     void getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     float scale();
     int numClasses();
-  private:
+  protected:
     std::vector<std::vector<std::vector<Eigen::Vector2f>>> poly_;
     std::vector<Eigen::ArrayXXf> class_maps_;
     std::vector<Eigen::ArrayXXf> geo_maps_;

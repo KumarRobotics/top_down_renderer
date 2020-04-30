@@ -18,8 +18,9 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include "top_down_render/point_xyz_class_normal.h"
-#include "top_down_render/top_down_map.h"
+#include "top_down_render/top_down_map_polar.h"
 #include "top_down_render/particle_filter.h"
+#include "top_down_render/scan_renderer_polar.h"
 
 class TopDownRender {
   public:
@@ -37,23 +38,17 @@ class TopDownRender {
 
     Eigen::Affine2f gt_pose_;
     cv::Point map_center_;
-    cv::Mat flatten_lut_;
     cv::Mat color_lut_;
     cv::Mat background_img_;
-    TopDownMap *map_;
+    TopDownMapPolar *map_;
     ParticleFilter *filter_;
+    ScanRendererPolar *renderer_;
 
-    bool normal_filter_ = true;
     float current_res_ = 2;
 
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header);
-    void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-                               pcl::PointCloud<pcl::Normal>::Ptr& normals,  
-                               float side_length, std::vector<Eigen::ArrayXXf> &imgs);
-    void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-                                float side_length, std::vector<Eigen::ArrayXXf> &imgs);
     void visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img);
     cv::Mat visualizeAnalog(Eigen::ArrayXXf &cls, float scale);
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 

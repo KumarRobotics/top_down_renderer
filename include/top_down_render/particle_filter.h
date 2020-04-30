@@ -12,7 +12,7 @@
 
 class ParticleFilter {
   public:
-    ParticleFilter(int N, float width, float height, TopDownMap *map);
+    ParticleFilter(int N, float width, float height, TopDownMapPolar *map);
     void propagate();
     void update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                 std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
@@ -26,7 +26,7 @@ class ParticleFilter {
     StateParticle* max_likelihood_particle_;
     std::mt19937 *gen_;
     Eigen::VectorXf weights_;
-    TopDownMap* map_;
+    TopDownMapPolar* map_;
 };
 
 #endif //PARTICLE_FILTER_H_

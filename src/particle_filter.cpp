@@ -1,6 +1,6 @@
 #include "top_down_render/particle_filter.h"
 
-ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMap *map) {
+ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar *map) {
   std::random_device rd;
   gen_ = new std::mt19937(rd());
 

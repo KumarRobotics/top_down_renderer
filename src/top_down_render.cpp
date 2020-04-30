@@ -13,19 +13,6 @@ void TopDownRender::initialize() {
   geo_scan_pub_ = it_->advertise("geo_scan", 1);
   map_pub_ = it_->advertise("map_max", 1);
 
-  flatten_lut_ = cv::Mat::zeros(256, 1, CV_8UC1);
-  flatten_lut_.at<uint8_t>(100) = 2; //road
-  flatten_lut_.at<uint8_t>(101) = 3; //dirt
-  flatten_lut_.at<uint8_t>(102) = 1; //grass
-  flatten_lut_.at<uint8_t>(2) = 4;   //building
-  flatten_lut_.at<uint8_t>(3) = 4;   //wall
-
-  flatten_lut_.at<uint8_t>(7) = 5;   //vegetation
-  flatten_lut_.at<uint8_t>(8) = 1;   //terrain
-  flatten_lut_.at<uint8_t>(13) = 2;  //car
-  flatten_lut_.at<uint8_t>(14) = 2;  //truck
-  flatten_lut_.at<uint8_t>(15) = 2;  //bus
-
   //This order determines priority as well
   color_lut_ = cv::Mat::ones(256, 1, CV_8UC3)*255;
   color_lut_.at<cv::Vec3b>(0) = cv::Vec3b(255,255,255); //unlabeled
@@ -35,9 +22,6 @@ void TopDownRender::initialize() {
   color_lut_.at<cv::Vec3b>(4) = cv::Vec3b(0,0,255);     //building
   color_lut_.at<cv::Vec3b>(5) = cv::Vec3b(0,255,0);     //veg
   color_lut_.at<cv::Vec3b>(6) = cv::Vec3b(255,255,0);   //car
-
-  //If simulating, don't need
-  normal_filter_ = false;
 
   std::string map_path;
   nh_.getParam("map", map_path);
@@ -52,8 +36,9 @@ void TopDownRender::initialize() {
   nh_.getParam("svg_origin_y", svg_origin_y);
   map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
 
-  map_ = new TopDownMap(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
+  map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
   filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
+  renderer_ = new ScanRendererPolar(false);
 
   ROS_INFO_STREAM("Setup complete");
 
@@ -63,84 +48,10 @@ void TopDownRender::initialize() {
   //  ROS_INFO("Debug loop");
   //  std_msgs::Header img_header;
   //  //image 1006 x 633
-  //  publishLocalMap(633/2.64, 1006/2.64, Eigen::Vector2f(1006/2/2.64, 633/2/2.64), 1., img_header);
+  //  map_->samplePtsPolar(Eigen::Vector2i(100, 50), 1, 2*M_PI/100);
+  //  publishLocalMap(100, 50, Eigen::Vector2f(547/2.64, 270/2.64), 1., img_header);
   //  rate.sleep();
   //}
-}
-
-void TopDownRender::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-                                           float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
-  if (imgs.size() < 2) return;
-  Eigen::Vector2i img_size(imgs[0].cols(), imgs[0].rows());
-
-  for (int i=0; i<imgs.size(); i++) {
-    imgs[i].setZero();
-  }
-
-  for (size_t idx=0; idx<cloud->width; idx++) {
-    Eigen::Vector3f last_pt(0,0,0); 
-    Eigen::Vector3f pt(0,0,0); 
-    Eigen::Vector2i last_ind = img_size/2;
-    bool last_high_grad = false;
-
-    //Scan up a vertical scan line
-    for (size_t idy=0; idy<cloud->height; idy++) {
-      pcl::PointXYZRGB pcl_pt = cloud->at(idx, idy);
-      pt << pcl_pt.x, pcl_pt.y, pcl_pt.z;
-      if (pt[0] == 0 && pt[1] == 0) continue;
-      int x_ind = std::round(pt[0]/side_length)+img_size[0]/2;
-      int y_ind = std::round(pt[1]/side_length)+img_size[1]/2;
-
-      float dist = (pt-last_pt).head<2>().norm(); //dist in xy plane
-      float slope = abs(pt(2)-last_pt(2))/dist;
-      if (slope > 1) {
-        if (x_ind >= 0 && x_ind < img_size[0] && y_ind >= 0 && y_ind < img_size[1]) {
-          imgs[1](y_ind, x_ind) += 1;
-        }
-        last_high_grad = true;
-      } else if (slope < 0.3 && last_high_grad == false) {
-        Eigen::Vector2i diff = Eigen::Vector2i(x_ind, y_ind)-last_ind;
-        for (float i=0; i<1; i+=1./diff.norm()) {
-          Eigen::Vector2i interp_ind(round(last_ind[0]+i*diff[0]), round(last_ind[1]+i*diff[1]));
-          if (interp_ind[0] >= 0 && interp_ind[0] < img_size[0] && interp_ind[1] >= 0 && 
-              interp_ind[1] < img_size[1]) {
-            imgs[0](interp_ind[1], interp_ind[0]) += 1;
-          }
-        }
-      } else {
-        last_high_grad = false;
-      }
-      last_pt = pt;
-      last_ind << x_ind, y_ind;
-    }
-  }
-}
-
-void TopDownRender::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-                                          pcl::PointCloud<pcl::Normal>::Ptr& normals, 
-                                          float side_length, std::vector<Eigen::ArrayXXf> &imgs) {
-  if (imgs.size() < 1) return;
-  Eigen::Vector2i img_size(imgs[0].cols(), imgs[0].rows());
-
-  for (int i=0; i<imgs.size(); i++) {
-    imgs[i].setZero();
-  }
-
-  //Generate bins of points
-  for (size_t idx=0; idx<cloud->height*cloud->width; idx++) {
-    auto pt = cloud->points[idx];
-    if (pt.x == 0 && pt.y == 0) continue;
-
-    int x_ind = std::round(pt.x/side_length)+img_size[0]/2;
-    int y_ind = std::round(pt.y/side_length)+img_size[1]/2;
-    if (x_ind >= 0 && x_ind < img_size[0] && y_ind >= 0 && y_ind < img_size[1]) {
-      PointXYZClassNormal pt(cloud->points[idx], normals->points[idx]);
-      if (!normal_filter_ || normals->points[idx].normal_z < 0.9) {
-        int pt_class = *reinterpret_cast<const int*>(&cloud->points[idx].rgb) & 0xff;
-        imgs[flatten_lut_.at<uint8_t>(pt_class)-1](y_ind, x_ind)++;
-      }
-    }
-  }
 }
 
 void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
@@ -209,11 +120,11 @@ void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &im
 //Debug function
 void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header) {
   std::vector<Eigen::ArrayXXf> classes;
-  for (int i=0; i<2; i++) {
+  for (int i=0; i<map_->numClasses(); i++) {
     Eigen::ArrayXXf cls(h, w);
     classes.push_back(cls);
   }
-  map_->getLocalGeoMap(center, 0, res, classes);
+  map_->getLocalMap(center, classes);
 
   //Invert for viz
   for (int i=0; i<classes.size(); i++) {
@@ -273,17 +184,17 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   //Generate top down render and remap
   std::vector<Eigen::ArrayXXf> top_down, top_down_geo;
   for (int i=0; i<map_->numClasses(); i++) {
-    Eigen::ArrayXXf img(50, 50);
+    Eigen::ArrayXXf img(100, 50);
     top_down.push_back(img);
   }
   for (int i=0; i<2; i++) {
-    Eigen::ArrayXXf img(50, 50);
+    Eigen::ArrayXXf img(100, 50);
     top_down_geo.push_back(img);
   }
 
   ROS_INFO_STREAM("Starting render");
-  renderSemanticTopDown(cloud, normals, current_res_, top_down);
-  renderGeometricTopDown(cloud, current_res_, top_down_geo);
+  renderer_->renderSemanticTopDown(cloud, normals, current_res_, top_down);
+  renderer_->renderGeometricTopDown(cloud, current_res_, top_down_geo);
 
   //convert pointcloud header to ROS header
   std_msgs::Header img_header;

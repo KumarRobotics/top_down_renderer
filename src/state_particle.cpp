@@ -1,13 +1,13 @@
 #include "top_down_render/state_particle.h"
 
-StateParticle::StateParticle(State s, float width, float height, TopDownMap *map) {
+StateParticle::StateParticle(State s, float width, float height, TopDownMapPolar *map) {
   state_ = s;
   map_ = map;
   width_ = width;
   height_ = height;
 }
 
-StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDownMap *map) {
+StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDownMapPolar *map) {
   std::uniform_real_distribution<float> dist(0.,1.);
 
   state_.x = dist(*gen)*width;
@@ -51,8 +51,8 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
     geo_cls.push_back(Eigen::ArrayXXf(top_down_scan[0].rows(), top_down_scan[0].cols()));
   }
 
-  map_->getLocalMap(center, state_.theta, res, classes);
-  map_->getLocalGeoMap(center, state_.theta, res, geo_cls);
+  map_->getLocalMap(center, classes);
+  map_->getLocalGeoMap(center, geo_cls);
 
   float cost = 0;
   float normalization = 0;

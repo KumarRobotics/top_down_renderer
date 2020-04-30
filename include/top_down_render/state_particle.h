@@ -1,7 +1,7 @@
 #ifndef STATE_PARTICLE_H_
 #define STATE_PARTICLE_H_
 
-#include "top_down_render/top_down_map.h"
+#include "top_down_render/top_down_map_polar.h"
 
 #include <random>
 #include <chrono>
@@ -14,8 +14,8 @@ typedef struct State {
 
 class StateParticle {
   public:
-    StateParticle(State s, float width, float height, TopDownMap *map);
-    StateParticle(std::mt19937 *gen, float width, float height, TopDownMap *map);
+    StateParticle(State s, float width, float height, TopDownMapPolar *map);
+    StateParticle(std::mt19937 *gen, float width, float height, TopDownMapPolar *map);
     
     void propagate(std::mt19937 *gen);
     State state();
@@ -29,7 +29,7 @@ class StateParticle {
     float width_;
     float height_;
     float weight_;
-    TopDownMap *map_;
+    TopDownMapPolar *map_;
 };
 
 #endif //STATE_PARTICLE_H_
