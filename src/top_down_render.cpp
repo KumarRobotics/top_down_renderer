@@ -193,8 +193,8 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   }
 
   ROS_INFO_STREAM("Starting render");
-  renderer_->renderSemanticTopDown(cloud, normals, current_res_, top_down);
-  renderer_->renderGeometricTopDown(cloud, current_res_, top_down_geo);
+  renderer_->renderSemanticTopDown(cloud, normals, 1, 2*M_PI/100, top_down);
+  renderer_->renderGeometricTopDown(cloud, 1, 2*M_PI/100, top_down_geo);
 
   //convert pointcloud header to ROS header
   std_msgs::Header img_header;
