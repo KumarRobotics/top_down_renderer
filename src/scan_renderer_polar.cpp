@@ -15,8 +15,8 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<pcl::PointX
   for (size_t idx=0; idx<cloud->width; idx++) {
     Eigen::Vector3f last_pt(0,0,0); 
     Eigen::Vector3f pt(0,0,0); 
-    Eigen::Vector2i last_ind(img_size[0]/2, 0);
     bool last_high_grad = false;
+    int last_r_ind = 0;
 
     //Scan up a vertical scan line
     for (size_t idy=0; idy<cloud->height; idy++) {
@@ -38,19 +38,16 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<pcl::PointX
         }
         last_high_grad = true;
       } else if (slope < 0.3 && last_high_grad == false) {
-        Eigen::Vector2i diff = Eigen::Vector2i(theta_ind, r_ind)-last_ind;
-        for (float i=0; i<1; i+=1./diff.norm()) {
-          Eigen::Vector2i interp_ind(round(last_ind[0]+i*diff[0]), round(last_ind[1]+i*diff[1]));
-          if (interp_ind[0] >= 0 && interp_ind[0] < img_size[0] && interp_ind[1] >= 0 && 
-              interp_ind[1] < img_size[1]) {
-            imgs[0](interp_ind[0], interp_ind[1]) += 1;
+        for (int i=last_r_ind; i<=r_ind; i+=1) {
+          if (i < img_size[1]) {
+            imgs[0](theta_ind, i) += 1;
           }
         }
       } else {
         last_high_grad = false;
       }
       last_pt = pt;
-      last_ind << theta_ind, r_ind;
+      last_r_ind = r_ind;
     }
   }
 }
