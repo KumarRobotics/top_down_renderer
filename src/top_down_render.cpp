@@ -37,6 +37,7 @@ void TopDownRender::initialize() {
   map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
 
   map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
+  map_->samplePtsPolar(Eigen::Vector2i(100, 25), 1, 2*M_PI/100);
   filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
   renderer_ = new ScanRendererPolar(false);
 
@@ -184,11 +185,11 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   //Generate top down render and remap
   std::vector<Eigen::ArrayXXf> top_down, top_down_geo;
   for (int i=0; i<map_->numClasses(); i++) {
-    Eigen::ArrayXXf img(100, 50);
+    Eigen::ArrayXXf img(100, 25);
     top_down.push_back(img);
   }
   for (int i=0; i<2; i++) {
-    Eigen::ArrayXXf img(100, 50);
+    Eigen::ArrayXXf img(100, 25);
     top_down_geo.push_back(img);
   }
 

@@ -30,6 +30,11 @@ class StateParticle {
     float height_;
     float weight_;
     TopDownMapPolar *map_;
+
+    float getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
+                        std::vector<Eigen::ArrayXXf> &top_down_geo,
+                        std::vector<Eigen::ArrayXXf> &classes,
+                        std::vector<Eigen::ArrayXXf> &geo_cls, float rot);
 };
 
 #endif //STATE_PARTICLE_H_

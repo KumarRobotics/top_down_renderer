@@ -39,6 +39,36 @@ float StateParticle::weight() {
   return weight_;
 }
 
+float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
+                                   std::vector<Eigen::ArrayXXf> &top_down_geo,
+                                   std::vector<Eigen::ArrayXXf> &classes,
+                                   std::vector<Eigen::ArrayXXf> &geo_cls, float rot) {
+  //number of bins to shift by
+  int num_bins = top_down_scan[0].rows();
+  int rot_shift = static_cast<int>(std::round(rot*num_bins/2/M_PI));
+
+  //normalize rotation
+  while (rot_shift >= num_bins) rot_shift -= num_bins;
+  while (rot_shift < 0) rot_shift += num_bins;
+
+  float cost = 0;
+  float normalization = 0;
+  for (int i=0; i<map_->numClasses(); i++) {
+    //semantic cost
+    cost += (top_down_scan[i].bottomRows(rot_shift) * classes[i].topRows(rot_shift)).sum()*0.01;
+    cost += (top_down_scan[i].topRows(num_bins-rot_shift) * classes[i].bottomRows(num_bins-rot_shift)).sum()*0.01;
+    normalization += top_down_scan[i].sum();
+  }
+  for (int i=0; i<2; i++) {
+    //geometric cost
+    cost += (top_down_geo[i].bottomRows(rot_shift) * geo_cls[i].topRows(rot_shift)).sum()*0.001;
+    cost += (top_down_geo[i].topRows(num_bins-rot_shift) * geo_cls[i].bottomRows(num_bins-rot_shift)).sum()*0.001;
+    normalization += top_down_scan[i].sum();
+  }
+
+  return cost/normalization;
+}
+
 void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                                   std::vector<Eigen::ArrayXXf> &top_down_geo, float res) {
   Eigen::Vector2f center(state_.x, state_.y);
@@ -54,22 +84,7 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
   map_->getLocalMap(center, classes);
   map_->getLocalGeoMap(center, geo_cls);
 
-  float cost = 0;
-  float normalization = 0;
-  Eigen::ArrayXXf tmp;
-  for (int i=0; i<map_->numClasses(); i++) {
-    //semantic cost
-    tmp = top_down_scan[i] * classes[i]*0.01;
-    cost += tmp.sum();
-    normalization += top_down_scan[i].sum();
-  }
-  for (int i=0; i<2; i++) {
-    //geometric cost
-    tmp = top_down_geo[i] * geo_cls[i]*0.001;
-    cost += tmp.sum();
-    normalization += top_down_scan[i].sum();
-  }
-  cost /= normalization;
+  float cost = getCostForRot(top_down_scan, top_down_geo, classes, geo_cls, state_.theta);
 
   weight_ = 1/(cost+0.01); //Add epsilon to avoid divide-by-zero problems
 }
