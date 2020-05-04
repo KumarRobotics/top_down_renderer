@@ -6,19 +6,24 @@
 #include <random>
 #include <chrono>
 
+typedef struct ThetaParticle {
+  float theta;
+  float weight;
+} ThetaParticle;
+
 typedef struct State {
   float x;
   float y;
-  float theta;
+  std::vector<ThetaParticle> *theta_particles;
 } State;
 
 class StateParticle {
   public:
-    StateParticle(State s, float width, float height, TopDownMapPolar *map);
     StateParticle(std::mt19937 *gen, float width, float height, TopDownMapPolar *map);
     
-    void propagate(std::mt19937 *gen);
+    void propagate();
     State state();
+    Eigen::Vector3f mlState();
     void setState(State s);
     void computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                        std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
@@ -29,12 +34,15 @@ class StateParticle {
     float width_;
     float height_;
     float weight_;
+    float ml_theta_;
     TopDownMapPolar *map_;
+    std::mt19937 *gen_;
 
     float getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
                         std::vector<Eigen::ArrayXXf> &top_down_geo,
                         std::vector<Eigen::ArrayXXf> &classes,
                         std::vector<Eigen::ArrayXXf> &geo_cls, float rot);
+    void resampleParticles();
 };
 
 #endif //STATE_PARTICLE_H_

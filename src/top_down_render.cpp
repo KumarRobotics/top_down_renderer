@@ -38,7 +38,7 @@ void TopDownRender::initialize() {
 
   map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 1, 2*M_PI/100);
-  filter_ = new ParticleFilter(3000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
+  filter_ = new ParticleFilter(300, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
   renderer_ = new ScanRendererPolar(false);
 
   ROS_INFO_STREAM("Setup complete");

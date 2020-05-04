@@ -22,7 +22,7 @@ ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar
 //In the future this function should take in a motion prior
 void ParticleFilter::propagate() {
   for (auto p : particles_) {
-    p->propagate(gen_);
+    p->propagate();
   }
 }
 
@@ -63,9 +63,9 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
 
 void ParticleFilter::computeCov(Eigen::Matrix2f &cov) {
   cov.setZero();
+  Eigen::Vector2f max_likelihood_state = max_likelihood_particle_->mlState().head<2>();
   for (auto particle : particles_) {
-    Eigen::Vector2f state(particle->state().x-max_likelihood_particle_->state().x, 
-                          particle->state().y-max_likelihood_particle_->state().y);
+    Eigen::Vector2f state = particle->mlState().head<2>() - max_likelihood_state;
     cov += state*state.transpose();
   }
   cov /= particles_.size()-1;
@@ -74,13 +74,14 @@ void ParticleFilter::computeCov(Eigen::Matrix2f &cov) {
 void ParticleFilter::visualize(cv::Mat &img) {
   //Particle dist
   for (auto p : particles_) {
-    cv::Point pt(p->state().x*map_->scale(), img.size().height-p->state().y*map_->scale());
+    Eigen::Vector2f state = p->mlState().head<2>();
+    cv::Point pt(state[0]*map_->scale(), img.size().height-state[1]*map_->scale());
     cv::circle(img, pt, 3, cv::Scalar(0,0,255), -1);
   }
   //Max likelihood
-  cv::Point pt(max_likelihood_particle_->state().x*map_->scale(), 
-               img.size().height-max_likelihood_particle_->state().y*map_->scale());
-  cv::Point dir(cos(max_likelihood_particle_->state().theta)*5, 
-                sin(max_likelihood_particle_->state().theta)*5);
+  Eigen::Vector3f ml_state = max_likelihood_particle_->mlState();
+  cv::Point pt(ml_state[0]*map_->scale(), 
+               img.size().height-ml_state[1]*map_->scale());
+  cv::Point dir(cos(ml_state[2])*5, sin(ml_state[2])*5);
   cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
 }
