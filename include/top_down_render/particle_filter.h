@@ -20,13 +20,15 @@ class ParticleFilter {
     void visualize(cv::Mat &img);
   private:
     int num_particles_;
-    std::vector<StateParticle*> particles_;
-    std::vector<StateParticle*> new_particles_;
+    std::vector<std::shared_ptr<StateParticle>> particles_;
+    std::vector<std::shared_ptr<StateParticle>> new_particles_;
 
-    StateParticle* max_likelihood_particle_;
+    std::shared_ptr<StateParticle> max_likelihood_particle_;
     std::mt19937 *gen_;
     Eigen::VectorXf weights_;
     TopDownMapPolar* map_;
+    float width_;
+    float height_;
 };
 
 #endif //PARTICLE_FILTER_H_

@@ -14,7 +14,7 @@ typedef struct ThetaParticle {
 typedef struct State {
   float x;
   float y;
-  std::vector<ThetaParticle> *theta_particles;
+  std::shared_ptr<std::vector<ThetaParticle>> theta_particles;
 } State;
 
 class StateParticle {

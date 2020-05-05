@@ -37,7 +37,7 @@ void TopDownRender::initialize() {
   map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
 
   map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
-  map_->samplePtsPolar(Eigen::Vector2i(100, 25), 1, 2*M_PI/100);
+  map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
   filter_ = new ParticleFilter(2000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
   renderer_ = new ScanRendererPolar(false);
 
@@ -125,7 +125,7 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
     Eigen::ArrayXXf cls(h, w);
     classes.push_back(cls);
   }
-  map_->getLocalMap(center, classes);
+  map_->getLocalMap(center, res, classes);
 
   //Invert for viz
   for (int i=0; i<classes.size(); i++) {
@@ -194,8 +194,8 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   }
 
   ROS_INFO_STREAM("Starting render");
-  renderer_->renderSemanticTopDown(cloud, normals, 1, 2*M_PI/100, top_down);
-  renderer_->renderGeometricTopDown(cloud, 1, 2*M_PI/100, top_down_geo);
+  renderer_->renderSemanticTopDown(cloud, normals, current_res_, 2*M_PI/100, top_down);
+  renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
 
   //convert pointcloud header to ROS header
   std_msgs::Header img_header;

@@ -8,9 +8,9 @@ class TopDownMapPolar : public TopDownMap {
     TopDownMapPolar(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float scale, float res);
 
     //Overriden versions for polar map gen
-    void getLocalMap(Eigen::Vector2f center, std::vector<Eigen::ArrayXXf> &dists);
-    void getLocalGeoMap(Eigen::Vector2f center, std::vector<Eigen::ArrayXXf> &dists);
-    void samplePtsPolar(Eigen::Vector2i shape, float res, float ang_res);
+    void getLocalMap(Eigen::Vector2f center, float res, std::vector<Eigen::ArrayXXf> &dists);
+    void getLocalGeoMap(Eigen::Vector2f center, float res, std::vector<Eigen::ArrayXXf> &dists);
+    void samplePtsPolar(Eigen::Vector2i shape, float ang_res);
 
   protected:
     Eigen::Array2Xf ang_sample_pts;

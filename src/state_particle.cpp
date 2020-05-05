@@ -6,7 +6,7 @@ StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDo
 
   state_.x = dist(*gen)*width;
   state_.y = dist(*gen)*height;
-  state_.theta_particles = new std::vector<ThetaParticle>();
+  state_.theta_particles = std::make_shared<std::vector<ThetaParticle>>();
   for (int i=0; i<30; i++) {
     ThetaParticle p;
     p.theta = dist(*gen)*2*M_PI;
@@ -115,7 +115,7 @@ void StateParticle::resampleParticles(int num_part) {
     new_part.push_back((*state_.theta_particles)[j]);
   }
 
-  *state_.theta_particles = new_part;
+  (*state_.theta_particles) = new_part;
 }
 
 void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, 
@@ -130,8 +130,8 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
     geo_cls.push_back(Eigen::ArrayXXf(top_down_scan[0].rows(), top_down_scan[0].cols()));
   }
 
-  map_->getLocalMap(center, classes);
-  map_->getLocalGeoMap(center, geo_cls);
+  map_->getLocalMap(center, res, classes);
+  map_->getLocalGeoMap(center, res, geo_cls);
 
   float cost = 0;
   weight_ = 0;
