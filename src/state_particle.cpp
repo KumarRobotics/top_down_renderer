@@ -7,7 +7,7 @@ StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDo
   state_.x = dist(*gen)*width;
   state_.y = dist(*gen)*height;
   state_.theta_particles = new std::vector<ThetaParticle>();
-  for (int i=0; i<10; i++) {
+  for (int i=0; i<30; i++) {
     ThetaParticle p;
     p.theta = dist(*gen)*2*M_PI;
     p.weight = 1;
@@ -80,7 +80,20 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
   return cost/normalization;
 }
 
-void StateParticle::resampleParticles() {
+float StateParticle::thetaCov() {
+  float sum = 0;
+  for (auto p : *state_.theta_particles) {
+    float diff = abs(p.theta - ml_theta_);
+    while (diff > M_PI) diff -= 2*M_PI;
+    sum += diff*diff;
+  }
+  return sum/state_.theta_particles->size();
+}
+
+void StateParticle::resampleParticles(int num_part) {
+  //Minimum 4 particles
+  if (num_part < 4) num_part = 4;
+
   float weight_sum = 0;
   for (int i=0; i<state_.theta_particles->size(); i++) {
     weight_sum += (*state_.theta_particles)[i].weight;
@@ -89,9 +102,9 @@ void StateParticle::resampleParticles() {
 
   std::uniform_real_distribution<float> shift_dist(0.,1.);
   float shift = shift_dist(*gen_); //Add a random shift
-  for (int i=0; i<state_.theta_particles->size(); i++) {
+  for (int i=0; i<num_part; i++) {
     float running_sum = 0;
-    float sample = weight_sum*(static_cast<float>(i)+shift)/state_.theta_particles->size();
+    float sample = weight_sum*(static_cast<float>(i)+shift)/num_part;
     int j=0;
     for (; j<state_.theta_particles->size(); j++) {
       running_sum += (*state_.theta_particles)[j].weight;
@@ -132,6 +145,7 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
       ml_theta_ = (*state_.theta_particles)[i].theta;
     }
   }
-
-  resampleParticles();
+  
+  float cov = thetaCov();
+  resampleParticles(cov*10);
 }

@@ -28,6 +28,7 @@ class StateParticle {
     void computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                        std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
     float weight();
+    float thetaCov();
   private:
     //State
     State state_;
@@ -42,7 +43,7 @@ class StateParticle {
                         std::vector<Eigen::ArrayXXf> &top_down_geo,
                         std::vector<Eigen::ArrayXXf> &classes,
                         std::vector<Eigen::ArrayXXf> &geo_cls, float rot);
-    void resampleParticles();
+    void resampleParticles(int num_part);
 };
 
 #endif //STATE_PARTICLE_H_
