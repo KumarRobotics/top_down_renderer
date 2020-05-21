@@ -21,17 +21,26 @@ ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar
     new_particles_.push_back(new_particle);
   }
   max_likelihood_particle_ = particles_[0];
+
+  active_loc_ = new ActiveLocalizer(map);
+
+  //Initialize Gaussians
+  computeGMM();
+  gmm_thread_ = new std::thread(std::bind(&ParticleFilter::gmmThread, this));
 }
 
 //In the future this function should take in a motion prior
 void ParticleFilter::propagate() {
+  particle_lock_.lock();
   for (auto p : particles_) {
     p->propagate();
   }
+  particle_lock_.unlock();
 }
 
 void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                             std::vector<Eigen::ArrayXXf> &top_down_geo, float res) {
+  particle_lock_.lock();
   //Recompute weights
   std::for_each(std::execution::par, particles_.begin(), particles_.end(), 
                 std::bind(&StateParticle::computeWeight, std::placeholders::_1, top_down_scan, top_down_geo, res));
@@ -48,18 +57,10 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   max_likelihood_particle_ = particles_[max_weight];
 
   ROS_INFO_STREAM("particle reweighting complete");
-  
-  //GMM
-  std::vector<Eigen::Vector3f> means;
-  std::vector<Eigen::Matrix3f> covs;
-  computeGMM(means, covs);
-  for (auto m : means) {
-    ROS_INFO_STREAM(m);
-  }
 
   //should really use eigenvalues instead of diagonal
   num_particles_ = 0;
-  for (auto cov : covs) {
+  for (auto cov : covs_) {
     Eigen::Vector2cf eig = cov.block<2,2>(0,0).eigenvalues(); //complex vector
     num_particles_ += static_cast<int>(sqrt(eig[0].real())*sqrt(eig[1].real()))*5; //Approximation of area of cov ellipse
   }
@@ -91,6 +92,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
     new_particles_[i]->setState(particles_[j]->state());
   }
   particles_.swap(new_particles_);
+  particle_lock_.unlock();
 }
 
 void ParticleFilter::computeCov(Eigen::Matrix2f &cov) {
@@ -103,19 +105,40 @@ void ParticleFilter::computeCov(Eigen::Matrix2f &cov) {
   cov /= particles_.size()-1;
 }
 
-void ParticleFilter::computeGMM(std::vector<Eigen::Vector3f> &means, std::vector<Eigen::Matrix3f> &covs) {
+void ParticleFilter::getGMM(std::vector<Eigen::Vector3f> &means, std::vector<Eigen::Matrix3f> &covs) {
+  gmm_lock_.lock();
+  means = means_;
+  covs = covs_;
+  gmm_lock_.unlock();
+}
+
+void ParticleFilter::gmmThread() {
+  while (true) {
+    computeGMM();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
+}
+
+void ParticleFilter::computeGMM() {
   //We do this recursively: GMM in euclidean space, and then GMM on each cluster in theta space
   cv::Ptr<cv::ml::EM> em = cv::ml::EM::create();
-  em->setClustersNumber(num_gaussians_);
   em->setCovarianceMatrixType(cv::ml::EM::COV_MAT_GENERIC);
 
   //Build sample array
-  int num_samples = std::min(500, static_cast<int>(particles_.size()));
-  cv::Mat samples = cv::Mat(num_samples, 2, CV_64F);
+  particle_lock_.lock();
+  num_gaussians_ = std::min(static_cast<int>(particles_.size()/20)+1, num_gaussians_);
+  em->setClustersNumber(num_gaussians_);
+
+  int num_samples = std::min(1000, static_cast<int>(particles_.size()));
+  cv::Mat samples = cv::Mat(num_samples, 4, CV_64F);
   for (int i=0; i<num_samples; i+=1) {
-    samples.at<double>(i, 0) = particles_[i*particles_.size()/num_samples]->mlState()[0];
-    samples.at<double>(i, 1) = particles_[i*particles_.size()/num_samples]->mlState()[1];
+    Eigen::Vector3f state = particles_[i*particles_.size()/num_samples]->mlState();
+    samples.at<double>(i, 0) = state[0];
+    samples.at<double>(i, 1) = state[1];
+    samples.at<double>(i, 2) = 50*cos(state[2]);
+    samples.at<double>(i, 3) = 50*sin(state[2]);
   }
+  particle_lock_.unlock();
 
   cv::Mat likelihoods, labels, cluster_means;
   em->trainEM(samples, likelihoods, labels);
@@ -126,7 +149,7 @@ void ParticleFilter::computeGMM(std::vector<Eigen::Vector3f> &means, std::vector
   if (num_gaussians_*50 < num_particles_) {
     em->setClustersNumber(num_gaussians_ + 1);
     em->trainEM(samples, likelihoods, labels);
-    if (likelihood_mean + 0.2 < cv::mean(likelihoods)[0]) {
+    if (likelihood_mean + 0.3 < cv::mean(likelihoods)[0]) {
       dir = 1;
     }
   }
@@ -134,7 +157,7 @@ void ParticleFilter::computeGMM(std::vector<Eigen::Vector3f> &means, std::vector
   if (num_gaussians_ > 1) {
     em->setClustersNumber(num_gaussians_ - 1);
     em->trainEM(samples, likelihoods, labels);
-    if (likelihood_mean - 0.2 < cv::mean(likelihoods)[0]) {
+    if (likelihood_mean - 0.3 < cv::mean(likelihoods)[0]) {
       dir = -1;
     }
   }
@@ -147,14 +170,20 @@ void ParticleFilter::computeGMM(std::vector<Eigen::Vector3f> &means, std::vector
   em->getCovs(cluster_covs);
 
   //Convert to Eigen by manually copying elements
+  gmm_lock_.lock();
+  means_.clear();
+  covs_.clear();
   for (int i=0; i<cluster_covs.size(); i++) {
-    means.push_back(Eigen::Vector3f(cluster_means.at<double>(i,0), cluster_means.at<double>(i,1), 0));
+    means_.push_back(Eigen::Vector3f(cluster_means.at<double>(i,0), cluster_means.at<double>(i,1),
+                     atan2(cluster_means.at<double>(i,3), cluster_means.at<double>(i,2))));
     Eigen::Matrix3f cov;
     cov << cluster_covs[i].at<double>(0,0), cluster_covs[i].at<double>(0,1), 0,
            cluster_covs[i].at<double>(1,0), cluster_covs[i].at<double>(1,1), 0,
            0, 0, 1;
-    covs.push_back(cov);
+    covs_.push_back(cov);
   }
+  best_rel_pos_ = active_loc_->getBestRelPos(means_);
+  gmm_lock_.unlock();
 }
 
 void ParticleFilter::visualize(cv::Mat &img) {
@@ -164,6 +193,32 @@ void ParticleFilter::visualize(cv::Mat &img) {
     cv::Point pt(state[0]*map_->scale(), img.size().height-state[1]*map_->scale());
     cv::circle(img, pt, 3, cv::Scalar(0,0,255), -1);
   }
+  //GMM
+  gmm_lock_.lock();
+  for (int i=0; i<means_.size(); i++) {
+    Eigen::Matrix2f pos_cov = covs_[i].block<2,2>(0,0);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eigensolver(pos_cov);
+    if (eigensolver.info() != Eigen::Success) break;
+    Eigen::Vector2f evals = eigensolver.eigenvalues();
+    Eigen::Vector2f maj_axis = eigensolver.eigenvectors().col(0);
+    if (evals[0] < 0 || evals[1] < 0) break; //We better be PSD
+
+    cv::Size size(sqrt(evals[0])*map_->scale(), sqrt(evals[1])*map_->scale());
+    float angle = atan2(-maj_axis[1], maj_axis[0]);
+    cv::Point center(means_[i][0]*map_->scale(), 
+                     img.size().height-means_[i][1]*map_->scale());
+    cv::ellipse(img, center, size*2, angle*180/M_PI, 0, 360, cv::Scalar(255,0,0), 2);
+
+    cv::Point dir(cos(means_[i][2])*5, sin(means_[i][2])*5);
+    cv::arrowedLine(img, center-dir, center+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
+
+    //relative pose stuff
+    ROS_INFO_STREAM(best_rel_pos_[1]);
+    cv::Point rel_pt(best_rel_pos_[0]*cos(best_rel_pos_[1]+means_[i][2])*map_->scale(), 
+                     best_rel_pos_[0]*sin(best_rel_pos_[1]+means_[i][2])*map_->scale());
+    cv::circle(img, rel_pt+center, 3, cv::Scalar(0,255,0), -1);
+  }
+  gmm_lock_.unlock();
   //Max likelihood
   Eigen::Vector3f ml_state = max_likelihood_particle_->mlState();
   cv::Point pt(ml_state[0]*map_->scale(), 

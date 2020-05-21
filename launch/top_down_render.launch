@@ -13,10 +13,16 @@
     <param name="map" value="$(find top_down_render)/maps/airsim_env"/>
     <param name="svg_res" value="6.1"/>
     -->
+    <!--
     <param name="map" value="$(find top_down_render)/maps/unity_rural1_env"/>
     <param name="svg_res" value="2.5"/>
     <param name="svg_origin_x" value="548"/>
     <param name="svg_origin_y" value="270"/>
+    -->
+    <param name="map" value="$(find top_down_render)/maps/unity_rural2_env"/>
+    <param name="svg_res" value="1.72"/>
+    <param name="svg_origin_x" value="497"/>
+    <param name="svg_origin_y" value="317"/>
     <!--
     <param name="map" value="$(find top_down_render)/maps/test"/>
     <param name="svg_res" value="1"/>

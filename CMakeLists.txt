@@ -157,6 +157,7 @@ add_executable(
   src/particle_filter.cpp
   src/scan_renderer.cpp
   src/scan_renderer_polar.cpp
+  src/active_localizer.cpp
 )
 
 ## Rename C++ executable without prefix
