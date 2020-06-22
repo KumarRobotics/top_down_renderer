@@ -66,14 +66,14 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
   float normalization = 0;
   for (int i=0; i<map_->numClasses(); i++) {
     //semantic cost
-    cost += (top_down_scan[i].bottomRows(rot_shift) * classes[i].topRows(rot_shift)).sum()*0.01;
-    cost += (top_down_scan[i].topRows(num_bins-rot_shift) * classes[i].bottomRows(num_bins-rot_shift)).sum()*0.01;
+    cost += (top_down_scan[i].topRows(rot_shift) * classes[i].bottomRows(rot_shift)).sum()*0.01;
+    cost += (top_down_scan[i].bottomRows(num_bins-rot_shift) * classes[i].topRows(num_bins-rot_shift)).sum()*0.01;
     normalization += top_down_scan[i].sum();
   }
   for (int i=0; i<2; i++) {
     //geometric cost
-    cost += (top_down_geo[i].bottomRows(rot_shift) * geo_cls[i].topRows(rot_shift)).sum()*0.001;
-    cost += (top_down_geo[i].topRows(num_bins-rot_shift) * geo_cls[i].bottomRows(num_bins-rot_shift)).sum()*0.001;
+    cost += (top_down_geo[i].topRows(rot_shift) * geo_cls[i].bottomRows(rot_shift)).sum()*0.001;
+    cost += (top_down_geo[i].bottomRows(num_bins-rot_shift) * geo_cls[i].topRows(num_bins-rot_shift)).sum()*0.001;
     normalization += top_down_geo[i].sum();
   }
 

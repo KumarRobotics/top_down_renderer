@@ -20,7 +20,8 @@ class ParticleFilter {
     void propagate();
     void update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                 std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
-    void computeCov(Eigen::Matrix2f &cov);
+    void computeCov(Eigen::Matrix3f &cov);
+    void maxLikelihood(Eigen::Vector3f &state);
     void getGMM(std::vector<Eigen::Vector3f> &means, std::vector<Eigen::Matrix3f> &covs);
     void visualize(cv::Mat &img);
   private:

@@ -9,6 +9,8 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/features/integral_image_normal.h>
@@ -29,8 +31,10 @@ class TopDownRender {
   private:
     ros::NodeHandle nh_;
     image_transport::ImageTransport *it_;
+    tf2_ros::StaticTransformBroadcaster *static_broadcaster_;
     ros::Subscriber pc_sub_;
     ros::Subscriber gt_pose_sub_;
+    ros::Publisher pose_pub_;
     image_transport::Publisher img_pub_;
     image_transport::Publisher scan_pub_;
     image_transport::Publisher geo_scan_pub_;

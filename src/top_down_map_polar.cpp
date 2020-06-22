@@ -9,7 +9,7 @@ TopDownMapPolar::TopDownMapPolar(std::string path, cv::Mat& color_lut, int num_c
 
 void TopDownMapPolar::samplePtsPolar(Eigen::Vector2i shape, float ang_res) {
   Eigen::Array2Xf ang_pts(2, shape[0]*shape[1]);
-  ang_sample_pts = Eigen::Array2Xf(2, shape[0]*shape[1]);
+  ang_sample_pts_ = Eigen::Array2Xf(2, shape[0]*shape[1]);
   samplePts(Eigen::Vector2f::Zero(), 0, ang_pts, shape[1], shape[0], 1);
   ang_pts.row(1) += -ang_pts.row(1)[0]; //shift to start at 0
 
@@ -17,8 +17,8 @@ void TopDownMapPolar::samplePtsPolar(Eigen::Vector2i shape, float ang_res) {
   ang_pts.row(1) *= 1./resolution_;
 
   //convert to cartesian
-  ang_sample_pts.row(0) = Eigen::cos(ang_pts.row(0))*ang_pts.row(1); //x
-  ang_sample_pts.row(1) = Eigen::sin(ang_pts.row(0))*ang_pts.row(1); //y
+  ang_sample_pts_.row(0) = Eigen::cos(ang_pts.row(0))*ang_pts.row(1); //x
+  ang_sample_pts_.row(1) = Eigen::sin(ang_pts.row(0))*ang_pts.row(1); //y
 }
 
 void TopDownMapPolar::getLocalMap(Eigen::Vector2f center, float res,
@@ -26,7 +26,7 @@ void TopDownMapPolar::getLocalMap(Eigen::Vector2f center, float res,
   if (dists.size() < 1) return;
 
   //Generate list of indices
-  Eigen::Array2Xf pts = ang_sample_pts*res;
+  Eigen::Array2Xf pts = ang_sample_pts_*res;
   pts.row(0) += center[1]/resolution_;
   pts.row(1) += center[0]/resolution_;
   Eigen::Array2Xi pts_int = pts.round().cast<int>();
@@ -48,7 +48,7 @@ void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center, float res,
   if (dists.size() < 1) return;
 
   //Generate list of indices
-  Eigen::Array2Xf pts = ang_sample_pts*res;
+  Eigen::Array2Xf pts = ang_sample_pts_*res;
   pts.row(0) += center[1]/resolution_;
   pts.row(1) += center[0]/resolution_;
   Eigen::Array2Xi pts_int = pts.round().cast<int>();

@@ -22,6 +22,7 @@ ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar
   }
   max_likelihood_particle_ = particles_[0];
 
+  best_rel_pos_ = Eigen::Vector2f(0,0);
   active_loc_ = new ActiveLocalizer(map);
 
   //Initialize Gaussians
@@ -95,11 +96,17 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   particle_lock_.unlock();
 }
 
-void ParticleFilter::computeCov(Eigen::Matrix2f &cov) {
+void ParticleFilter::maxLikelihood(Eigen::Vector3f &state) {
+  state = max_likelihood_particle_->mlState();
+}
+
+void ParticleFilter::computeCov(Eigen::Matrix3f &cov) {
   cov.setZero();
-  Eigen::Vector2f max_likelihood_state = max_likelihood_particle_->mlState().head<2>();
+  Eigen::Vector3f max_likelihood_state = max_likelihood_particle_->mlState();
   for (auto particle : particles_) {
-    Eigen::Vector2f state = particle->mlState().head<2>() - max_likelihood_state;
+    Eigen::Vector3f state = particle->mlState() - max_likelihood_state;
+    while (state[2] > M_PI) state[2] -= 2*M_PI;
+    while (state[2] < -M_PI) state[2] += 2*M_PI;
     cov += state*state.transpose();
   }
   cov /= particles_.size()-1;
@@ -209,7 +216,7 @@ void ParticleFilter::visualize(cv::Mat &img) {
                      img.size().height-means_[i][1]*map_->scale());
     cv::ellipse(img, center, size*2, angle*180/M_PI, 0, 360, cv::Scalar(255,0,0), 2);
 
-    cv::Point dir(cos(means_[i][2])*5, sin(means_[i][2])*5);
+    cv::Point dir(cos(means_[i][2])*5, -sin(means_[i][2])*5);
     cv::arrowedLine(img, center-dir, center+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
 
     //relative pose stuff
@@ -223,6 +230,6 @@ void ParticleFilter::visualize(cv::Mat &img) {
   Eigen::Vector3f ml_state = max_likelihood_particle_->mlState();
   cv::Point pt(ml_state[0]*map_->scale(), 
                img.size().height-ml_state[1]*map_->scale());
-  cv::Point dir(cos(ml_state[2])*5, sin(ml_state[2])*5);
+  cv::Point dir(cos(ml_state[2])*5, -sin(ml_state[2])*5);
   cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
 }

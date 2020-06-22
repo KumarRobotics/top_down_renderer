@@ -13,7 +13,7 @@ class TopDownMapPolar : public TopDownMap {
     void samplePtsPolar(Eigen::Vector2i shape, float ang_res);
 
   protected:
-    Eigen::Array2Xf ang_sample_pts;
+    Eigen::Array2Xf ang_sample_pts_;
 };
 
 #endif //TOP_DOWN_MAP_POLAR_H_

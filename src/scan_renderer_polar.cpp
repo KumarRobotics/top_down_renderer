@@ -75,7 +75,9 @@ void ScanRendererPolar::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXY
     if (theta_ind >= 0 && theta_ind < img_size[0] && r_ind >= 0 && r_ind < img_size[1]) {
       if (!normal_filter_ || normals->points[idx].normal_z < 0.9) {
         int pt_class = *reinterpret_cast<const int*>(&cloud->points[idx].rgb) & 0xff;
-        imgs[flatten_lut_[pt_class]-1](theta_ind, r_ind)++;
+        if (flatten_lut_[pt_class] > 0) {  
+          imgs[flatten_lut_[pt_class]-1](theta_ind, r_ind)++;
+        }
       }
     }
   }

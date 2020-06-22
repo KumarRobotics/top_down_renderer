@@ -34,8 +34,8 @@ void ActiveLocalizer::getLocalMap(Eigen::Vector3f &state, std::vector<Eigen::Arr
   while (rot_shift < 0) rot_shift += num_bins;
 
   for (int n=0; n<map_->numClasses(); n++) {
-    local_map[n].bottomRows(rot_shift) = local_map_orig[n].topRows(rot_shift);
-    local_map[n].topRows(num_bins-rot_shift) = local_map_orig[n].bottomRows(num_bins-rot_shift);
+    local_map[n].topRows(rot_shift) = local_map_orig[n].bottomRows(rot_shift);
+    local_map[n].bottomRows(num_bins-rot_shift) = local_map_orig[n].topRows(num_bins-rot_shift);
   }
 }
 

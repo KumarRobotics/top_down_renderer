@@ -7,6 +7,8 @@ TopDownRender::TopDownRender(ros::NodeHandle &nh) {
 void TopDownRender::initialize() {
   pc_sub_ = nh_.subscribe<pcl::PointCloud<pcl::PointXYZRGB>>("pc", 10, &TopDownRender::pcCallback, this);
   gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, &TopDownRender::gtPoseCallback, this);
+
+  pose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_est", 1);
   it_ = new image_transport::ImageTransport(nh_);
   img_pub_ = it_->advertise("img", 1);
   scan_pub_ = it_->advertise("scan", 1);
@@ -36,23 +38,59 @@ void TopDownRender::initialize() {
   nh_.getParam("svg_origin_y", svg_origin_y);
   map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
 
+  //Publish the map image
+  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_img_).toImageMsg();
+  img_pub_.publish(img_msg);
+
+  //DEBUG FOR VISUALIZATION
+  TopDownMap *cartesian_map = new TopDownMap(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
+  ros::Rate rate(1);
+  while (ros::ok()) {
+    ROS_INFO("Debug loop");
+    std::vector<Eigen::ArrayXXf> classes;
+    for (int i=0; i<cartesian_map->numClasses(); i++) {
+      Eigen::ArrayXXf cls(200, 100);
+      classes.push_back(cls);
+    }
+    cartesian_map->getLocalMap(Eigen::Vector2f(1242/1.31, 434/1.31), 3.14/2, 5, classes);
+
+    //Invert for viz
+    for (int i=0; i<classes.size(); i++) {
+      classes[i] = -1*classes[i];
+    }
+    ROS_INFO("viz");
+
+    cv::Mat map_color;
+    visualize(classes, map_color);
+
+    //Convert to ROS and publish
+    sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
+    map_pub_.publish(img_msg);
+    //image 1006 x 633
+    //map_->samplePtsPolar(Eigen::Vector2i(100, 50), 2*M_PI/100);
+    //publishLocalMap(100, 50, Eigen::Vector2f(250/1.31, 300/1.31), 1., img_header);
+    rate.sleep();
+  }
+  //END DEBUG
+
   map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
   filter_ = new ParticleFilter(2000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
   renderer_ = new ScanRendererPolar(false);
 
-  ROS_INFO_STREAM("Setup complete");
+  //static transform broadcaster for map viz
+  static_broadcaster_ = new tf2_ros::StaticTransformBroadcaster(); 
+  geometry_msgs::TransformStamped map_svg_transform;
+  map_svg_transform.header.stamp = ros::Time::now();
+  map_svg_transform.header.frame_id = "world";
+  map_svg_transform.child_frame_id = "sem_map";
+  map_svg_transform.transform.translation.x = (background_img_.size().width/2-svg_origin_x)/svg_res;
+  map_svg_transform.transform.translation.y = (background_img_.size().height/2-svg_origin_y)/svg_res;
+  map_svg_transform.transform.translation.z = -2;
+  map_svg_transform.transform.rotation.x = 1; //identity rot
+  static_broadcaster_->sendTransform(map_svg_transform);
 
-  //DEBUG FOR VISUALIZATION
-  //ros::Rate rate(1);
-  //while (ros::ok()) {
-  //  ROS_INFO("Debug loop");
-  //  std_msgs::Header img_header;
-  //  //image 1006 x 633
-  //  map_->samplePtsPolar(Eigen::Vector2i(100, 50), 1, 2*M_PI/100);
-  //  publishLocalMap(100, 50, Eigen::Vector2f(547/2.64, 270/2.64), 1., img_header);
-  //  rate.sleep();
-  //}
+  ROS_INFO_STREAM("Setup complete");
 }
 
 void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
@@ -159,8 +197,8 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   //Draw gt pose
   Eigen::Vector2f front(2,0);
   front = gt_pose_.linear()*front;
-  cv::Point img_rot(-front[0]*map_->scale(), front[1]*map_->scale());
-  cv::Point img_pos(-gt_pose_.translation()[0]*map_->scale(), gt_pose_.translation()[1]*map_->scale());
+  cv::Point img_rot(front[0]*map_->scale(), -front[1]*map_->scale());
+  cv::Point img_pos(gt_pose_.translation()[0]*map_->scale(), -gt_pose_.translation()[1]*map_->scale());
   cv::arrowedLine(background_copy, map_center_+img_pos-img_rot, map_center_+img_pos+img_rot, 
                   cv::Scalar(0,255,0), 2, CV_AA, 0, 0.3);
 
@@ -210,7 +248,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
 
   //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
   updateFilter(top_down, top_down_geo, current_res_, img_header);
-  Eigen::Matrix2f cov;
+  Eigen::Matrix3f cov;
   filter_->computeCov(cov);
 
   if (std::max(cov(0,0), cov(1,1)) > 15 && current_res_ < 2) {
@@ -219,6 +257,39 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   } else if (current_res_ > 0.5) {
     //we gucci, shrink to refine
     current_res_ -= 0.02;
+  }
+
+  //Only publish if converged to unimodal dist
+  if (cov(0,0) < 50 && cov(1,1) < 50 && cov(2,2) < 0.5) {
+    //get max likelihood state
+    Eigen::Vector3f ml_state;
+    filter_->maxLikelihood(ml_state);
+
+    geometry_msgs::PoseWithCovarianceStamped pose;
+    pose.header = pcl_conversions::fromPCL(cloud->header);
+    pose.header.frame_id = "world";
+
+    //pose
+    pose.pose.pose.position.x = ml_state[0] - map_center_.x/map_->scale();
+    pose.pose.pose.position.y = ml_state[1] - (background_img_.size().height-map_center_.y)/map_->scale();
+    pose.pose.pose.position.z = 2;
+    pose.pose.pose.orientation.x = 0;
+    pose.pose.pose.orientation.y = 0;
+    pose.pose.pose.orientation.z = sin(ml_state[2]/2);
+    pose.pose.pose.orientation.w = cos(ml_state[2]/2);
+
+    //cov
+    pose.pose.covariance[0] = cov(0,0);
+    pose.pose.covariance[1] = cov(0,1);
+    pose.pose.covariance[5] = cov(0,2);
+    pose.pose.covariance[6] = cov(1,0);
+    pose.pose.covariance[7] = cov(1,1);
+    pose.pose.covariance[11] = cov(1,2);
+    pose.pose.covariance[30] = cov(2,0);
+    pose.pose.covariance[31] = cov(2,1);
+    pose.pose.covariance[35] = cov(2,2);
+
+    pose_pub_.publish(pose);
   }
 
   //Normal visualization

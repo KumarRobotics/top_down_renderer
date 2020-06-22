@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
+  <node pkg="tf2_ros" type="static_transform_publisher" name="gt"
+    args="0 0 0 0 0 0 husky/TrueState husky/base"/> 
+
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
     <remap from="~/pc" to="/husky/lidar_points"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
@@ -14,18 +17,31 @@
     <param name="svg_res" value="6.1"/>
     -->
     <!--
-    <param name="map" value="$(find top_down_render)/maps/unity_rural1_env"/>
+    <param name="map" value="$(find top_down_render)/maps/unity_rural3_env"/>
     <param name="svg_res" value="2.5"/>
-    <param name="svg_origin_x" value="548"/>
-    <param name="svg_origin_y" value="270"/>
+    <param name="svg_origin_x" value="458"/>
+    <param name="svg_origin_y" value="363"/>
     -->
+    <!--
     <param name="map" value="$(find top_down_render)/maps/unity_rural2_env"/>
     <param name="svg_res" value="1.72"/>
     <param name="svg_origin_x" value="497"/>
     <param name="svg_origin_y" value="317"/>
+    -->
     <!--
     <param name="map" value="$(find top_down_render)/maps/test"/>
     <param name="svg_res" value="1"/>
     -->
+    <param name="map" value="$(find top_down_render)/maps/morgantown"/>
+    <param name="svg_res" value="1.31"/>
+    <param name="svg_origin_x" value="458"/>
+    <param name="svg_origin_y" value="363"/>
+
+    <remap from="~/pose_est" to="/subt/sem_pose" />
   </node>
+
+  <!--
+  <include file="$(find depth_atlas)/launch/mapper_sim.launch">
+  </include>
+  -->
 </launch>

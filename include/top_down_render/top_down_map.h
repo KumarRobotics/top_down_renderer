@@ -1,6 +1,8 @@
 #ifndef TOP_DOWN_MAP_H_
 #define TOP_DOWN_MAP_H_
 
+#include <fstream>
+
 #include <ros/ros.h> //Just for prints
 #include <Eigen/Dense>
 #include <opencv2/core/core.hpp>
@@ -14,6 +16,31 @@ namespace Eigen {
   typedef Array<float, 1, Dynamic> Array1Xf;
   typedef Array<uint8_t, Dynamic, Dynamic> ArrayXXc;
   typedef Array<float, Dynamic, Dynamic> ArrayXXf;
+}
+
+//Save/load Eigen matrices to file.
+//Modified from https://stackoverflow.com/questions/25389480/how-to-write-read-an-eigen-matrix-from-binary-file
+template<class Matrix>
+void write_binary(std::string &filename, const Matrix& matrix){
+  std::ofstream out(filename, std::ios::out | std::ios::binary | std::ios::trunc);
+  typename Matrix::Index rows=matrix.rows(), cols=matrix.cols();
+	//write size
+  out.write((char*) (&rows), sizeof(typename Matrix::Index));
+  out.write((char*) (&cols), sizeof(typename Matrix::Index));
+	//write contents
+  out.write((char*) matrix.data(), rows*cols*sizeof(typename Matrix::Scalar) );
+  out.close();
+}
+
+template<class Matrix>
+void read_binary(std::string &filename, Matrix& matrix){
+  std::ifstream in(filename, std::ios::in | std::ios::binary);
+  typename Matrix::Index rows=0, cols=0;
+  in.read((char*) (&rows), sizeof(typename Matrix::Index));
+  in.read((char*) (&cols), sizeof(typename Matrix::Index));
+  matrix.resize(rows, cols);
+  in.read((char*) matrix.data(), rows*cols*sizeof(typename Matrix::Scalar) );
+  in.close();
 }
 
 class TopDownMap {
@@ -33,6 +60,9 @@ class TopDownMap {
     int num_classes_;
     int num_exclusive_classes_;
 
+    bool loadCacheMetaData(std::string &path);
+    void loadCachedMaps();
+    void saveCachedMaps(std::string &path);
     void getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes);
     void getGeoRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &geo_cls);
     void computeDists(std::vector<Eigen::ArrayXXf> &classes);
