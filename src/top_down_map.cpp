@@ -127,7 +127,8 @@ void TopDownMap::loadCachedMaps() {
 }
 
 void TopDownMap::saveCachedMaps(std::string &path) {
-  std::ofstream data_file(std::string(getenv("HOME")) + "/.ros/cached_data.txt");
+  std::ofstream data_file(std::string(getenv("HOME")) + "/.ros/cached_data.txt", 
+                          std::ofstream::out | std::ofstream::trunc);
   data_file << path << std::endl;
   data_file << num_classes_ << std::endl;
   data_file << num_exclusive_classes_ << std::endl;
