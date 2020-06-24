@@ -4,12 +4,20 @@ StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDo
   gen_ = gen;
   std::uniform_real_distribution<float> dist(0.,1.);
 
-  state_.x = dist(*gen)*width;
-  state_.y = dist(*gen)*height;
+  std::vector<int> cls_vec;
+  while (true) {
+    state_.x = dist(*gen)*width;
+    state_.y = dist(*gen)*height;
+    map->getClassesAtPoint(Eigen::Vector2f(state_.x, state_.y), cls_vec);
+    if (std::find(cls_vec.begin(), cls_vec.end(), 1) != cls_vec.end()) {
+      break; //Particle is on the road
+    }
+  }
+
   state_.theta_particles = std::make_shared<std::vector<ThetaParticle>>();
   for (int i=0; i<30; i++) {
     ThetaParticle p;
-    p.theta = dist(*gen)*2*M_PI;
+    p.theta = i*2*M_PI/30;
     p.weight = 1;
     state_.theta_particles->push_back(p);
   }
@@ -20,22 +28,37 @@ StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDo
   height_ = height;
 }
 
-void StateParticle::propagate() {
-  std::normal_distribution<float> disp_dist{0, 0.5};
-  std::normal_distribution<float> theta_dist{0, M_PI/30};
+void StateParticle::propagate(Eigen::Vector2f &trans, float omega) {
+  Eigen::Vector2f trans_global = Eigen::Rotation2D<float>(ml_theta_) * trans;
+  state_.x += trans_global[0];
+  state_.y += trans_global[1];
+
+  //std::normal_distribution<float> disp_dist{0, 0.5};
+  //std::normal_distribution<float> theta_dist{0, M_PI/30};
+  std::normal_distribution<float> disp_dist{0, 0.3};
+  std::normal_distribution<float> theta_dist{0, M_PI/100};
   
   state_.x = std::max(std::min(width_, state_.x+disp_dist(*gen_)), static_cast<float>(0));
   state_.y = std::max(std::min(height_, state_.y+disp_dist(*gen_)), static_cast<float>(0));
 
   for (int i=0; i<state_.theta_particles->size(); i++) {
-    (*state_.theta_particles)[i].theta += theta_dist(*gen_);
+    (*state_.theta_particles)[i].theta += theta_dist(*gen_) + omega;
   }
+  ml_theta_ += omega;
 }
 
 void StateParticle::setState(State s) {
   state_.x = s.x;
   state_.y = s.y;
-  *state_.theta_particles = *s.theta_particles; //copy contents
+  state_.theta_particles->clear();
+  float max_weight = 0;
+  for (auto p : *s.theta_particles) {
+    state_.theta_particles->push_back(p);
+    if (max_weight < p.weight) {
+      max_weight = p.weight;
+      ml_theta_ = p.theta;
+    }
+  }
 }
 
 State StateParticle::state() {
@@ -70,12 +93,14 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
     cost += (top_down_scan[i].bottomRows(num_bins-rot_shift) * classes[i].topRows(num_bins-rot_shift)).sum()*0.01;
     normalization += top_down_scan[i].sum();
   }
+  /*
   for (int i=0; i<2; i++) {
     //geometric cost
     cost += (top_down_geo[i].topRows(rot_shift) * geo_cls[i].bottomRows(rot_shift)).sum()*0.001;
     cost += (top_down_geo[i].bottomRows(num_bins-rot_shift) * geo_cls[i].topRows(num_bins-rot_shift)).sum()*0.001;
     normalization += top_down_geo[i].sum();
   }
+  */
 
   return cost/normalization;
 }
@@ -137,7 +162,7 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
   weight_ = 0;
   for (int i=0; i<state_.theta_particles->size();  i++) {
     cost = getCostForRot(top_down_scan, top_down_geo, classes, geo_cls, (*state_.theta_particles)[i].theta);
-    (*state_.theta_particles)[i].weight = 1/(cost+0.01);
+    (*state_.theta_particles)[i].weight = 1/(cost+0.15);
 
     //Particle weight is based on best angle
     if ((*state_.theta_particles)[i].weight > weight_) {

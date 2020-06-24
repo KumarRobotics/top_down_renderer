@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
 	image_transport
 	cv_bridge
+  message_filters
+  eigen_conversions
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,7 +112,7 @@ find_package(OpenCV)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES top_down_render
-  CATKIN_DEPENDS geometry_msgs rospy sensor_msgs roscpp pcl_ros image_transport cv_bridge
+  CATKIN_DEPENDS geometry_msgs rospy sensor_msgs roscpp pcl_ros image_transport cv_bridge message_filters eigen_conversions
 )
 
 ###########

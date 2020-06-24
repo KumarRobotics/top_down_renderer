@@ -11,6 +11,7 @@ ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar
   height_ = height;
 
   //Weights should be even
+  ROS_INFO_STREAM("Initializing particles...");
   weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(num_particles_)/num_particles_;
   for (int i=0; i<num_particles_; i++) {
     std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, width, height, map);
@@ -20,6 +21,7 @@ ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar
     std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, width, height, map);
     new_particles_.push_back(new_particle);
   }
+  ROS_INFO_STREAM("Particles initialized");
   max_likelihood_particle_ = particles_[0];
 
   best_rel_pos_ = Eigen::Vector2f(0,0);
@@ -31,10 +33,10 @@ ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar
 }
 
 //In the future this function should take in a motion prior
-void ParticleFilter::propagate() {
+void ParticleFilter::propagate(Eigen::Vector2f &trans, float omega) {
   particle_lock_.lock();
   for (auto p : particles_) {
-    p->propagate();
+    p->propagate(trans, omega);
   }
   particle_lock_.unlock();
 }
@@ -59,13 +61,13 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
 
   ROS_INFO_STREAM("particle reweighting complete");
 
-  //should really use eigenvalues instead of diagonal
+  int last_num_particles = num_particles_;
   num_particles_ = 0;
   for (auto cov : covs_) {
     Eigen::Vector2cf eig = cov.block<2,2>(0,0).eigenvalues(); //complex vector
     num_particles_ += static_cast<int>(sqrt(eig[0].real())*sqrt(eig[1].real()))*5; //Approximation of area of cov ellipse
   }
-  num_particles_ = std::min(std::max(num_particles_, 10), 10000); //bounds
+  num_particles_ = std::min(std::max(num_particles_, last_num_particles/2+10), 10000); //bounds
   ROS_INFO_STREAM(num_particles_ << " particles");
 
   //resize num_particles_
@@ -196,9 +198,14 @@ void ParticleFilter::computeGMM() {
 void ParticleFilter::visualize(cv::Mat &img) {
   //Particle dist
   for (auto p : particles_) {
-    Eigen::Vector2f state = p->mlState().head<2>();
-    cv::Point pt(state[0]*map_->scale(), img.size().height-state[1]*map_->scale());
-    cv::circle(img, pt, 3, cv::Scalar(0,0,255), -1);
+    //Eigen::Vector2f state = p->mlState().head<2>();
+    //cv::Point pt(state[0]*map_->scale(), img.size().height-state[1]*map_->scale());
+    //cv::circle(img, pt, 3, cv::Scalar(0,0,255), -1);
+    Eigen::Vector3f ml_state = p->mlState();
+    cv::Point pt(ml_state[0]*map_->scale(), 
+                 img.size().height-ml_state[1]*map_->scale());
+    cv::Point dir(cos(ml_state[2])*5, -sin(ml_state[2])*5);
+    cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(0,0,255), 2, CV_AA, 0, 0.3);
   }
   //GMM
   gmm_lock_.lock();
@@ -220,7 +227,7 @@ void ParticleFilter::visualize(cv::Mat &img) {
     cv::arrowedLine(img, center-dir, center+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
 
     //relative pose stuff
-    ROS_INFO_STREAM(best_rel_pos_[1]);
+    //ROS_INFO_STREAM(best_rel_pos_[1]);
     cv::Point rel_pt(best_rel_pos_[0]*cos(best_rel_pos_[1]+means_[i][2])*map_->scale(), 
                      best_rel_pos_[0]*sin(best_rel_pos_[1]+means_[i][2])*map_->scale());
     cv::circle(img, rel_pt+center, 3, cv::Scalar(0,255,0), -1);

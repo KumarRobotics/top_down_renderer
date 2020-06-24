@@ -21,7 +21,7 @@ class StateParticle {
   public:
     StateParticle(std::mt19937 *gen, float width, float height, TopDownMapPolar *map);
     
-    void propagate();
+    void propagate(Eigen::Vector2f &trans, float omega);
     State state();
     Eigen::Vector3f mlState();
     void setState(State s);

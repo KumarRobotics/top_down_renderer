@@ -47,6 +47,7 @@ class TopDownMap {
   public:
     TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float scale, float res);
 
+    void getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes);
     void getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     void getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     float scale();

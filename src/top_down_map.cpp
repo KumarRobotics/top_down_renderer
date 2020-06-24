@@ -80,6 +80,19 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
   }
 }
 
+void TopDownMap::getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes) {
+  classes.clear();
+  Eigen::Vector2i center_ind = (center/resolution_).cast<int>();
+  for (int cls=0; cls<num_classes_; cls++) {
+    if (center_ind[0] < class_maps_[cls].cols() && center_ind[1] < class_maps_[cls].rows() &&
+        center_ind[0] >= 0 && center_ind[1] >= 0) {
+      if (class_maps_[cls](center_ind[1], center_ind[0]) < 1) {
+        classes.push_back(cls);
+      }
+    }
+  }
+}
+
 float TopDownMap::scale() {
   return scale_;
 }

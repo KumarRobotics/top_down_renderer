@@ -17,7 +17,7 @@
 class ParticleFilter {
   public:
     ParticleFilter(int N, float width, float height, TopDownMapPolar *map);
-    void propagate();
+    void propagate(Eigen::Vector2f &trans, float omega);
     void update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                 std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
     void computeCov(Eigen::Matrix3f &cov);
