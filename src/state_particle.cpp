@@ -1,6 +1,7 @@
 #include "top_down_render/state_particle.h"
 
-StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDownMapPolar *map) {
+StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDownMapPolar *map, FilterParams &params) {
+  params_ = params;
   gen_ = gen;
   std::uniform_real_distribution<float> dist(0.,1.);
 
@@ -35,8 +36,8 @@ void StateParticle::propagate(Eigen::Vector2f &trans, float omega) {
 
   //std::normal_distribution<float> disp_dist{0, 0.5};
   //std::normal_distribution<float> theta_dist{0, M_PI/30};
-  std::normal_distribution<float> disp_dist{0, 0.3};
-  std::normal_distribution<float> theta_dist{0, M_PI/100};
+  std::normal_distribution<float> disp_dist{0, params_.pos_cov};
+  std::normal_distribution<float> theta_dist{0, params_.theta_cov};
   
   state_.x = std::max(std::min(width_, state_.x+disp_dist(*gen_)), static_cast<float>(0));
   state_.y = std::max(std::min(height_, state_.y+disp_dist(*gen_)), static_cast<float>(0));
@@ -162,7 +163,7 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
   weight_ = 0;
   for (int i=0; i<state_.theta_particles->size();  i++) {
     cost = getCostForRot(top_down_scan, top_down_geo, classes, geo_cls, (*state_.theta_particles)[i].theta);
-    (*state_.theta_particles)[i].weight = 1/(cost+0.15);
+    (*state_.theta_particles)[i].weight = 1/(cost + params_.regularization);
 
     //Particle weight is based on best angle
     if ((*state_.theta_particles)[i].weight > weight_) {

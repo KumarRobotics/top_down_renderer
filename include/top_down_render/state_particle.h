@@ -17,9 +17,15 @@ typedef struct State {
   std::shared_ptr<std::vector<ThetaParticle>> theta_particles;
 } State;
 
+typedef struct FilterParams {
+  float pos_cov;
+  float theta_cov;
+  float regularization;
+} FilterParams;
+
 class StateParticle {
   public:
-    StateParticle(std::mt19937 *gen, float width, float height, TopDownMapPolar *map);
+    StateParticle(std::mt19937 *gen, float width, float height, TopDownMapPolar *map, FilterParams &params);
     
     void propagate(Eigen::Vector2f &trans, float omega);
     State state();
@@ -38,6 +44,8 @@ class StateParticle {
     float ml_theta_;
     TopDownMapPolar *map_;
     std::mt19937 *gen_;
+
+    FilterParams params_;
 
     float getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
                         std::vector<Eigen::ArrayXXf> &top_down_geo,

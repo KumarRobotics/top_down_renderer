@@ -32,6 +32,7 @@
     <param name="map" value="$(find top_down_render)/maps/test"/>
     <param name="svg_res" value="1"/>
     -->
+    <param name="use_raster" value="True"/>
     <param name="map" value="$(find top_down_render)/maps/morgantown"/>
     <param name="svg_res" value="1.31"/>
     <param name="svg_origin_x" value="0"/>

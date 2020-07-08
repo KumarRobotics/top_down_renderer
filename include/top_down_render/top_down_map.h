@@ -2,10 +2,13 @@
 #define TOP_DOWN_MAP_H_
 
 #include <fstream>
+#include <sys/stat.h>
 
 #include <ros/ros.h> //Just for prints
 #include <Eigen/Dense>
 #include <opencv2/core/core.hpp>
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 #define NANOSVG_CPLUSPLUS
 #include "top_down_render/nanosvg.h"
@@ -61,11 +64,13 @@ class TopDownMap {
     int num_classes_;
     int num_exclusive_classes_;
 
-    bool loadCacheMetaData(std::string &path);
+    void saveRasterizedMaps(const std::string &path);
+    void loadRasterizedMaps(const std::string &path);
+    bool loadCacheMetaData(const std::string &path);
     void loadCachedMaps();
-    void saveCachedMaps(std::string &path);
+    void saveCachedMaps(const std::string &path);
     void getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes);
-    void getGeoRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &geo_cls);
+    void getGeoRasterMap(std::vector<Eigen::ArrayXXf> &geo_cls);
     void computeDists(std::vector<Eigen::ArrayXXf> &classes);
     void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes);
     void samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res);

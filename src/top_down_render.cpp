@@ -48,17 +48,31 @@ void TopDownRender::initialize() {
   nh_.getParam("raster_res", raster_res);
 
   int svg_origin_x, svg_origin_y;
-  nh_.getParam("svg_origin_x", svg_origin_x);
-  nh_.getParam("svg_origin_y", svg_origin_y);
+  nh_.param<int>("svg_origin_x", svg_origin_x, 0);
+  nh_.param<int>("svg_origin_y", svg_origin_y, 0);
   map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
+
+  //Get filter parameters
+  FilterParams filter_params;
+  nh_.param<float>("filter_pos_cov", filter_params.pos_cov, 0.3);
+  nh_.param<float>("filter_theta_cov", filter_params.theta_cov, M_PI/100);
+  nh_.param<float>("filter_regularization", filter_params.regularization, 0.15);
+
+  bool use_raster;
+  nh_.param<bool>("use_raster", use_raster, false);
 
   //Publish the map image
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_img_).toImageMsg();
   img_pub_.publish(img_msg);
 
-  map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
+  if (use_raster) {
+    map_ = new TopDownMapPolar(map_path, color_lut_, 6, 4, svg_res, raster_res);
+  } else {
+    map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
+  }
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
-  filter_ = new ParticleFilter(2000, background_img_.size().width/svg_res, background_img_.size().height/svg_res, map_);
+  filter_ = new ParticleFilter(2000, background_img_.size().width/svg_res, 
+                               background_img_.size().height/svg_res, map_, filter_params);
   renderer_ = new ScanRendererPolar(false);
 
   //static transform broadcaster for map viz

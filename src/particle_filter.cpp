@@ -1,6 +1,6 @@
 #include "top_down_render/particle_filter.h"
 
-ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar *map) {
+ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar *map, FilterParams &params) {
   std::random_device rd;
   gen_ = new std::mt19937(rd());
 
@@ -9,16 +9,17 @@ ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar
   map_ = map;
   width_ = width;
   height_ = height;
+  params_ = params;
 
   //Weights should be even
   ROS_INFO_STREAM("Initializing particles...");
   weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(num_particles_)/num_particles_;
   for (int i=0; i<num_particles_; i++) {
-    std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, width, height, map);
+    std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, width, height, map, params_);
     particles_.push_back(particle);
 
     //Allocate memory for new array too, then we can swap back and forth without allocating
-    std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, width, height, map);
+    std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, width, height, map, params_);
     new_particles_.push_back(new_particle);
   }
   ROS_INFO_STREAM("Particles initialized");
@@ -67,7 +68,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
     Eigen::Vector2cf eig = cov.block<2,2>(0,0).eigenvalues(); //complex vector
     num_particles_ += static_cast<int>(sqrt(eig[0].real())*sqrt(eig[1].real()))*5; //Approximation of area of cov ellipse
   }
-  num_particles_ = std::min(std::max(num_particles_, last_num_particles/2+10), 10000); //bounds
+  num_particles_ = std::min(std::max(num_particles_, 3*last_num_particles/4+10), 10000); //bounds
   ROS_INFO_STREAM(num_particles_ << " particles");
 
   //resize num_particles_
@@ -75,7 +76,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
     new_particles_.resize(num_particles_);
   } else {
     while (new_particles_.size() < num_particles_) {
-      new_particles_.push_back(std::make_shared<StateParticle>(gen_, width_, height_, map_));
+      new_particles_.push_back(std::make_shared<StateParticle>(gen_, width_, height_, map_, params_));
     }
   }
   
@@ -198,13 +199,10 @@ void ParticleFilter::computeGMM() {
 void ParticleFilter::visualize(cv::Mat &img) {
   //Particle dist
   for (auto p : particles_) {
-    //Eigen::Vector2f state = p->mlState().head<2>();
-    //cv::Point pt(state[0]*map_->scale(), img.size().height-state[1]*map_->scale());
-    //cv::circle(img, pt, 3, cv::Scalar(0,0,255), -1);
-    Eigen::Vector3f ml_state = p->mlState();
-    cv::Point pt(ml_state[0]*map_->scale(), 
-                 img.size().height-ml_state[1]*map_->scale());
-    cv::Point dir(cos(ml_state[2])*5, -sin(ml_state[2])*5);
+    Eigen::Vector3f state = p->mlState();
+    cv::Point pt(state[0]*map_->scale(), 
+                 img.size().height-state[1]*map_->scale());
+    cv::Point dir(cos(state[2])*5, -sin(state[2])*5);
     cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(0,0,255), 2, CV_AA, 0, 0.3);
   }
   //GMM

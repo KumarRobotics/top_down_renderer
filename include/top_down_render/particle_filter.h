@@ -16,7 +16,7 @@
 
 class ParticleFilter {
   public:
-    ParticleFilter(int N, float width, float height, TopDownMapPolar *map);
+    ParticleFilter(int N, float width, float height, TopDownMapPolar *map, FilterParams &params);
     void propagate(Eigen::Vector2f &trans, float omega);
     void update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                 std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
@@ -37,6 +37,8 @@ class ParticleFilter {
     ActiveLocalizer* active_loc_;
     float width_;
     float height_;
+
+    FilterParams params_;
 
     //GMM stuff
     int num_gaussians_; //Only used in GMM thread
