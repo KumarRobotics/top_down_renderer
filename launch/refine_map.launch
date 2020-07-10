@@ -2,6 +2,8 @@
 <launch>
   <node pkg="top_down_render" name="refine_map" type="refine_map" output="screen">
     <param name="sem_occ_grid_path" value="/home/ian/code/PanoPoints/build/atlas_sem_grid.vtk"/>
-    <param name="original_map_path" value="$(find top_down_render)/maps/morgantown"/>
+    <param name="original_map_path" value="$(find top_down_render)/maps/unity_rural3_env"/>
+    <param name="map_center_x" value="183.2"/>
+    <param name="map_center_y" value="145.2"/>
   </node>
 </launch>

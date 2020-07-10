@@ -20,6 +20,7 @@ private:
   ros::NodeHandle nh_;
   size_t num_classes_, num_exclusive_classes_;
   float res_;
+  float map_center_x_, map_center_y_;
 
   void loadSemOccGrid(const std::string &path, std::vector<cv::Mat> &sem_maps, const cv::Size &size);
   void loadOriginalMap(const std::string &path, std::vector<cv::Mat> &sem_maps);
@@ -77,6 +78,8 @@ void MapRefiner::loadSemOccGrid(const std::string &path, std::vector<cv::Mat> &s
     for (size_t dim=0; dim<3; dim++) {
       ind[dim] = static_cast<int>(std::floor(pt[dim]/res_));
     }
+    ind[0] += static_cast<int>(map_center_x_/res_);
+    ind[1] += static_cast<int>(map_center_y_/res_);
     if (ind[0] < 0 || ind[0] >= size.width || ind[1] < 0 || ind[1] >= size.height)
       continue;
 
@@ -176,6 +179,8 @@ void MapRefiner::refineMap() {
     return;
   }
   nh_.param<float>("res", res_, 1);
+  nh_.param<float>("map_center_x", map_center_x_, 0);
+  nh_.param<float>("map_center_y", map_center_y_, 0);
 
   std::vector<cv::Mat> sem_occ_map, original_map;
 
