@@ -27,6 +27,12 @@ StateParticle::StateParticle(std::mt19937 *gen, float width, float height, TopDo
   map_ = map;
   width_ = width;
   height_ = height;
+
+  class_weights_.push_back(0.75); //terrain
+  class_weights_.push_back(2); //road
+  class_weights_.push_back(1.5); //dirt road
+  class_weights_.push_back(1.5); //building
+  class_weights_.push_back(0.5); //trees
 }
 
 void StateParticle::propagate(Eigen::Vector2f &trans, float omega) {
@@ -90,8 +96,8 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
   float normalization = 0;
   for (int i=0; i<map_->numClasses(); i++) {
     //semantic cost
-    cost += (top_down_scan[i].topRows(rot_shift) * classes[i].bottomRows(rot_shift)).sum()*0.01;
-    cost += (top_down_scan[i].bottomRows(num_bins-rot_shift) * classes[i].topRows(num_bins-rot_shift)).sum()*0.01;
+    cost += (top_down_scan[i].topRows(rot_shift) * classes[i].bottomRows(rot_shift)).sum()*0.01*class_weights_[i];
+    cost += (top_down_scan[i].bottomRows(num_bins-rot_shift) * classes[i].topRows(num_bins-rot_shift)).sum()*0.01*class_weights_[i];
     normalization += top_down_scan[i].sum();
   }
   /*

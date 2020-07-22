@@ -46,6 +46,7 @@ class StateParticle {
     std::mt19937 *gen_;
 
     FilterParams params_;
+    std::vector<float> class_weights_;
 
     float getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
                         std::vector<Eigen::ArrayXXf> &top_down_geo,

@@ -43,9 +43,12 @@ void TopDownRender::initialize() {
   nh_.getParam("map", map_path);
   background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
 
-  float svg_res, raster_res;
-  nh_.getParam("svg_res", svg_res);
-  nh_.getParam("raster_res", raster_res);
+  float svg_res = 1;
+  float raster_res = 1;
+  bool estimate_scale = true;
+  if (nh_.getParam("svg_res", svg_res) && nh_.getParam("raster_res", raster_res)) {
+    estimate_scale = false; 
+  }
 
   int svg_origin_x, svg_origin_y;
   nh_.param<int>("svg_origin_x", svg_origin_x, 0);
@@ -66,9 +69,9 @@ void TopDownRender::initialize() {
   img_pub_.publish(img_msg);
 
   if (use_raster) {
-    map_ = new TopDownMapPolar(map_path, color_lut_, 6, 4, svg_res, raster_res);
+    map_ = new TopDownMapPolar(map_path, color_lut_, 6, 6, svg_res, raster_res);
   } else {
-    map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 4, svg_res, raster_res);
+    map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, svg_res, raster_res);
   }
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
   filter_ = new ParticleFilter(2000, background_img_.size().width/svg_res, 

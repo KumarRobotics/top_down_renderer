@@ -4,8 +4,8 @@
     args="0 0 0 0 0 0 husky/TrueState husky/base"/> 
 
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
-    <!--remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/-->
-    <remap from="~/pc" to="/husky/lidar_points"/>
+    <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
+    <!--remap from="~/pc" to="/husky/lidar_points"/-->
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <param name="raster_res" value="1"/>
     
@@ -17,11 +17,13 @@
     <param name="map" value="$(find top_down_render)/maps/airsim_env"/>
     <param name="svg_res" value="6.1"/>
     -->
+    <!--
     <param name="map" value="$(find top_down_render)/maps/unity_rural3_env"/>
     <param name="svg_res" value="2.5"/>
     <param name="svg_origin_x" value="458"/>
     <param name="svg_origin_y" value="363"/>
     <param name="use_motion_prior" value="True"/>
+    -->
     <!--
     <param name="map" value="$(find top_down_render)/maps/unity_rural2_env"/>
     <param name="svg_res" value="1.72"/>
@@ -32,20 +34,29 @@
     <param name="map" value="$(find top_down_render)/maps/test"/>
     <param name="svg_res" value="1"/>
     -->
-    <!--
-    <param name="use_raster" value="True"/>
+    <param name="use_raster" value="False"/>
     <param name="map" value="$(find top_down_render)/maps/morgantown"/>
     <param name="svg_res" value="1.31"/>
     <param name="svg_origin_x" value="0"/>
     <param name="svg_origin_y" value="0"/>
     <param name="use_motion_prior" value="True"/>
+    <!--
+    <param name="map" value="$(find top_down_render)/maps/ucity"/>
+    <param name="svg_res" value="1.097"/>
+    <param name="svg_origin_x" value="0"/>
+    <param name="svg_origin_y" value="0"/>
+    <param name="use_motion_prior" value="True"/>
     -->
+
+    <param name="filter_pos_cov" value="0.1"/>
+    <param name="filter_theta_cov" value="0.004"/>
+    <param name="filter_regularization" value="0.1"/>
 
     <remap from="~/pose_est" to="/subt/sem_pose" />
     <remap from="~/motion_prior" to="/subt/integrated_pose"/>
   </node>
 
-  <include file="$(find depth_atlas)/launch/mapper_sim.launch">
+  <include file="$(find depth_atlas)/launch/mapper.launch">
   </include>
 
   <node pkg="tf2_ros" type="static_transform_publisher" name="world_map" args="0 0 0 0 0 0 1 world map" />

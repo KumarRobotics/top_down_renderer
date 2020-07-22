@@ -56,7 +56,7 @@ class TopDownRender {
     ParticleFilter *filter_;
     ScanRendererPolar *renderer_;
 
-    float current_res_ = 4;
+    float current_res_ = 4; //m/px range
 
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
