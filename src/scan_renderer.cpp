@@ -1,8 +1,6 @@
 #include "top_down_render/scan_renderer.h"
 
-ScanRenderer::ScanRenderer(bool nf) {
-  normal_filter_ = nf;
-
+ScanRenderer::ScanRenderer() {
   flatten_lut_ = Eigen::VectorXi::Zero(256);
   flatten_lut_[100] = 2; //road
   flatten_lut_[101] = 3; //dirt
@@ -66,7 +64,6 @@ void ScanRenderer::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB
 }
 
 void ScanRenderer::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-                                         pcl::PointCloud<pcl::Normal>::Ptr& normals, 
                                          float res, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 1) return;
   Eigen::Vector2i img_size(imgs[0].cols(), imgs[0].rows());
@@ -83,10 +80,8 @@ void ScanRenderer::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>
     int x_ind = std::round(pt.x/res)+img_size[0]/2;
     int y_ind = std::round(pt.y/res)+img_size[1]/2;
     if (x_ind >= 0 && x_ind < img_size[0] && y_ind >= 0 && y_ind < img_size[1]) {
-      if (!normal_filter_ || normals->points[idx].normal_z < 0.9) {
-        int pt_class = *reinterpret_cast<const int*>(&cloud->points[idx].rgb) & 0xff;
-        imgs[flatten_lut_[pt_class]-1](y_ind, x_ind)++;
-      }
+      int pt_class = *reinterpret_cast<const int*>(&cloud->points[idx].rgb) & 0xff;
+      imgs[flatten_lut_[pt_class]-1](y_ind, x_ind)++;
     }
   }
 }

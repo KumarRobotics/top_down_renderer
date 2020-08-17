@@ -11,15 +11,13 @@
 
 class ScanRenderer {
   public:
-    ScanRenderer(bool nf);
+    ScanRenderer();
     void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-                               pcl::PointCloud<pcl::Normal>::Ptr& normals,  
                                float res, std::vector<Eigen::ArrayXXf> &imgs);
     void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
                                 float res, std::vector<Eigen::ArrayXXf> &imgs);
   protected:
     Eigen::VectorXi flatten_lut_;
-    bool normal_filter_ = false;
 };
 
 #endif //SCAN_RENDERER_H_

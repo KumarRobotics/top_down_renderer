@@ -1,6 +1,6 @@
 #include "top_down_render/scan_renderer_polar.h"
 
-ScanRendererPolar::ScanRendererPolar(bool nf) : ScanRenderer(nf) {
+ScanRendererPolar::ScanRendererPolar() : ScanRenderer() {
 }
 
 void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
@@ -53,7 +53,6 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<pcl::PointX
 }
 
 void ScanRendererPolar::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
-                                              pcl::PointCloud<pcl::Normal>::Ptr& normals, 
                                               float res, float ang_res, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 1) return;
   Eigen::Vector2i img_size(imgs[0].rows(), imgs[0].cols());
@@ -73,11 +72,9 @@ void ScanRendererPolar::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXY
     int theta_ind = std::round(theta/ang_res)+img_size[0]/2;
     int r_ind = std::round(r/res);
     if (theta_ind >= 0 && theta_ind < img_size[0] && r_ind >= 0 && r_ind < img_size[1]) {
-      if (!normal_filter_ || normals->points[idx].normal_z < 0.9) {
-        int pt_class = *reinterpret_cast<const int*>(&cloud->points[idx].rgb) & 0xff;
-        if (flatten_lut_[pt_class] > 0) {  
-          imgs[flatten_lut_[pt_class]-1](theta_ind, r_ind)++;
-        }
+      int pt_class = (*reinterpret_cast<const int*>(&cloud->points[idx].rgb) >> 8) & 0xff;
+      if (flatten_lut_[pt_class] > 0) {  
+        imgs[flatten_lut_[pt_class]-1](theta_ind, r_ind)++;
       }
     }
   }

@@ -76,7 +76,7 @@ void TopDownRender::initialize() {
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
   filter_ = new ParticleFilter(2000, background_img_.size().width/svg_res, 
                                background_img_.size().height/svg_res, map_, filter_params);
-  renderer_ = new ScanRendererPolar(false);
+  renderer_ = new ScanRendererPolar();
 
   //static transform broadcaster for map viz
   static_broadcaster_ = new tf2_ros::StaticTransformBroadcaster(); 
@@ -234,14 +234,14 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
                                const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
   auto start = std::chrono::high_resolution_clock::now();
 
-  pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
-  pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
-  ne.setNormalEstimationMethod(ne.AVERAGE_3D_GRADIENT);
-  ne.setMaxDepthChangeFactor(1.0);
-  ne.setNormalSmoothingSize(10.0);
-  ne.setBorderPolicy(ne.BORDER_POLICY_MIRROR);
-  ne.setInputCloud(cloud);
-  ne.compute(*normals);
+  //pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+  //pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
+  //ne.setNormalEstimationMethod(ne.AVERAGE_3D_GRADIENT);
+  //ne.setMaxDepthChangeFactor(1.0);
+  //ne.setNormalSmoothingSize(10.0);
+  //ne.setBorderPolicy(ne.BORDER_POLICY_MIRROR);
+  //ne.setInputCloud(cloud);
+  //ne.compute(*normals);
 
   //Generate top down render and remap
   std::vector<Eigen::ArrayXXf> top_down, top_down_geo;
@@ -255,7 +255,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   }
 
   ROS_INFO_STREAM("Starting render");
-  renderer_->renderSemanticTopDown(cloud, normals, current_res_, 2*M_PI/100, top_down);
+  renderer_->renderSemanticTopDown(cloud, current_res_, 2*M_PI/100, top_down);
   renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
 
   //convert pointcloud header to ROS header
