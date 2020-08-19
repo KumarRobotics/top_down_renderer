@@ -45,8 +45,9 @@ void TopDownRender::initialize() {
 
   float svg_res = -1;
   float raster_res = 1;
+  nh_.getParam("raster_res", raster_res);
   bool estimate_scale = true;
-  if (nh_.getParam("svg_res", svg_res) && nh_.getParam("raster_res", raster_res)) {
+  if (nh_.getParam("svg_res", svg_res)) {
     estimate_scale = false; 
   }
 

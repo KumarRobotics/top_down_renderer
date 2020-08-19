@@ -43,8 +43,8 @@ class StateParticle {
   private:
     //State
     State state_;
-    size_t width_;
-    size_t height_;
+    float width_;
+    float height_;
     float weight_;
     float ml_theta_;
     TopDownMapPolar *map_;

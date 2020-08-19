@@ -88,11 +88,12 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
 }
 
 void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes) {
+  Eigen::Vector2i center = (center_ind.cast<float>() / resolution_).cast<int>();
   classes.clear();
   for (int cls=0; cls<num_classes_; cls++) {
-    if (center_ind[0] < class_maps_[cls].cols() && center_ind[1] < class_maps_[cls].rows() &&
-        center_ind[0] >= 0 && center_ind[1] >= 0) {
-      if (class_maps_[cls](center_ind[1], center_ind[0]) < 1) {
+    if (center[0] < class_maps_[cls].cols() && center[1] < class_maps_[cls].rows() &&
+        center[0] >= 0 && center[1] >= 0) {
+      if (class_maps_[cls](center[1], center[0]) < 1) {
         classes.push_back(cls);
       }
     }
@@ -104,12 +105,16 @@ void TopDownMap::getClassesAtPoint(const Eigen::Vector2f &center, std::vector<in
   getClassesAtPoint(center_ind, classes);
 }
 
-int TopDownMap::numClasses() {
+int TopDownMap::numClasses() const {
   return num_classes_;
 }
 
-Eigen::Vector2i TopDownMap::size() {
+Eigen::Vector2i TopDownMap::size() const {
   return Eigen::Vector2i(class_maps_[0].cols(), class_maps_[0].rows());
+}
+
+float TopDownMap::resolution() const {
+  return resolution_;
 }
 
 void TopDownMap::saveRasterizedMaps(const std::string &path) {

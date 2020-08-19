@@ -54,8 +54,9 @@ class TopDownMap {
     void getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes);
     void getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     void getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
-    Eigen::Vector2i size();
-    int numClasses();
+    Eigen::Vector2i size() const;
+    int numClasses() const;
+    float resolution() const;
   protected:
     std::vector<std::vector<std::vector<Eigen::Vector2f>>> poly_;
     std::vector<Eigen::ArrayXXf> class_maps_;

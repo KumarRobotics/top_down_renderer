@@ -6,7 +6,7 @@ StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterPara
   std::uniform_real_distribution<float> dist(0.,1.);
 
   std::vector<int> cls_vec;
-  Eigen::Vector2i map_size = map->size();
+  Eigen::Vector2f map_size = map->size().cast<float>() * map->resolution();
   while (true) {
     if (params_.fixed_scale < 0) {
       state_.scale = std::pow(10, (dist(*gen)-0.5)*2);

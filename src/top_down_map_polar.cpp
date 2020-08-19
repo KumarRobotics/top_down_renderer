@@ -27,9 +27,9 @@ void TopDownMapPolar::getLocalMap(Eigen::Vector2f center,
   if (dists.size() < 1) return;
 
   //Generate list of indices
-  Eigen::Array2Xf pts = ang_sample_pts_*resolution_*scale*res;
-  pts.row(0) += center[1];
-  pts.row(1) += center[0];
+  Eigen::Array2Xf pts = ang_sample_pts_*scale*res;
+  pts.row(0) += center[1]/resolution_;
+  pts.row(1) += center[0]/resolution_;
   Eigen::Array2Xi pts_int = pts.round().cast<int>();
 
   for (int cls=0; cls<dists.size(); cls++) {
@@ -50,9 +50,9 @@ void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center,
   if (dists.size() < 1) return;
 
   //Generate list of indices
-  Eigen::Array2Xf pts = ang_sample_pts_*resolution_*scale*res;
-  pts.row(0) += center[1];
-  pts.row(1) += center[0];
+  Eigen::Array2Xf pts = ang_sample_pts_*scale*res;
+  pts.row(0) += center[1]/resolution_;
+  pts.row(1) += center[0]/resolution_;
   Eigen::Array2Xi pts_int = pts.round().cast<int>();
 
   for (int cls=0; cls<dists.size(); cls++) {
@@ -69,11 +69,11 @@ void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center,
 
 void TopDownMapPolar::getLocalMap(Eigen::Vector2f center, float res,
                                   std::vector<Eigen::ArrayXXf> &dists) {
-  getLocalMap(center/resolution_, 1, res, dists);
+  getLocalMap(center, 1, res, dists);
 }
 
 void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center, float res,
                                      std::vector<Eigen::ArrayXXf> &dists) {
-  getLocalGeoMap(center/resolution_, 1, res, dists);
+  getLocalGeoMap(center, 1, res, dists);
 }
 
