@@ -5,8 +5,7 @@
 #define NANOSVG_IMPLEMENTATION
 #include "top_down_render/nanosvg.h"
 
-TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float scale, float res) {
-  scale_ = scale;
+TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res) {
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
@@ -59,13 +58,13 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
       //Generate full rasterized map
       ROS_INFO_STREAM("Rasterizing map...");
       for (int i=0; i<num_classes; i++) {
-        Eigen::ArrayXXf class_map(static_cast<int>(map->height/resolution_/scale_), 
-                                  static_cast<int>(map->width/resolution_/scale_)); //0 inside obstacles, 1 elsewhere
+        Eigen::ArrayXXf class_map(static_cast<int>(map->height/resolution_), 
+                                  static_cast<int>(map->width/resolution_)); //0 inside obstacles, 1 elsewhere
         class_maps_.push_back(class_map);
       }
 
       ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
-      getRasterMap(Eigen::Vector2f(map->width/2/scale_, map->height/2/scale_), 0, resolution_, class_maps_);
+      getRasterMap(Eigen::Vector2f(map->width/2, map->height/2), 0, resolution_, class_maps_);
 
       saveRasterizedMaps(path.substr(0, path.size()-4));
     } else {
@@ -88,9 +87,8 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
   }
 }
 
-void TopDownMap::getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes) {
+void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes) {
   classes.clear();
-  Eigen::Vector2i center_ind = (center/resolution_).cast<int>();
   for (int cls=0; cls<num_classes_; cls++) {
     if (center_ind[0] < class_maps_[cls].cols() && center_ind[1] < class_maps_[cls].rows() &&
         center_ind[0] >= 0 && center_ind[1] >= 0) {
@@ -101,12 +99,17 @@ void TopDownMap::getClassesAtPoint(const Eigen::Vector2f &center, std::vector<in
   }
 }
 
-float TopDownMap::scale() {
-  return scale_;
+void TopDownMap::getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes) {
+  Eigen::Vector2i center_ind = (center/resolution_).cast<int>();
+  getClassesAtPoint(center_ind, classes);
 }
 
 int TopDownMap::numClasses() {
   return num_classes_;
+}
+
+Eigen::Vector2i TopDownMap::size() {
+  return Eigen::Vector2i(class_maps_[0].cols(), class_maps_[0].rows());
 }
 
 void TopDownMap::saveRasterizedMaps(const std::string &path) {
@@ -149,8 +152,6 @@ bool TopDownMap::loadCacheMetaData(const std::string &path) {
   std::getline(data_file, line);
   if (std::stoi(line) != num_exclusive_classes_) return false;
   std::getline(data_file, line);
-  if (std::abs(std::stof(line) - scale_) > 0.01) return false; //epsilson to compare floats
-  std::getline(data_file, line);
   if (std::abs(std::stof(line) - resolution_) > 0.01) return false;
 
   return true;
@@ -178,7 +179,6 @@ void TopDownMap::saveCachedMaps(const std::string &path) {
   data_file << path << std::endl;
   data_file << num_classes_ << std::endl;
   data_file << num_exclusive_classes_ << std::endl;
-  data_file << scale_ << std::endl;
   data_file << resolution_ << std::endl;
 
   for (int cls=0; cls<num_classes_; cls++) {
@@ -296,7 +296,7 @@ void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, std:
   if (classes.size() < 1) return;
 
   Eigen::Array2Xf pts(2, classes[0].rows()*classes[0].cols());
-  samplePts(center*scale_, rot, pts, classes[0].cols(), classes[0].rows(), scale_*res);
+  samplePts(center, rot, pts, classes[0].cols(), classes[0].rows(), res);
 
   getClasses(pts, classes);
 }

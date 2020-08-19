@@ -48,19 +48,19 @@ void read_binary(std::string &filename, Matrix& matrix){
 
 class TopDownMap {
   public:
-    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float scale, float res);
+    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res);
 
     void getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes);
+    void getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes);
     void getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     void getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
-    float scale();
+    Eigen::Vector2i size();
     int numClasses();
   protected:
     std::vector<std::vector<std::vector<Eigen::Vector2f>>> poly_;
     std::vector<Eigen::ArrayXXf> class_maps_;
     std::vector<Eigen::ArrayXXf> geo_maps_;
-    float scale_; //pixels per meter for svg
-    float resolution_; //meters per pixel for rasterized map
+    float resolution_; //pixels for svg per per pixel for rasterized map
     int num_classes_;
     int num_exclusive_classes_;
 

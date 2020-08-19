@@ -1,25 +1,23 @@
 #include "top_down_render/particle_filter.h"
 
-ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar *map, FilterParams &params) {
+ParticleFilter::ParticleFilter(int N, TopDownMapPolar *map, FilterParams &params) {
   std::random_device rd;
   gen_ = new std::mt19937(rd());
 
   num_particles_ = N;
   num_gaussians_ = 1;
   map_ = map;
-  width_ = width;
-  height_ = height;
   params_ = params;
 
   //Weights should be even
   ROS_INFO_STREAM("Initializing particles...");
   weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(num_particles_)/num_particles_;
   for (int i=0; i<num_particles_; i++) {
-    std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, width, height, map, params_);
+    std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, map, params_);
     particles_.push_back(particle);
 
     //Allocate memory for new array too, then we can swap back and forth without allocating
-    std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, width, height, map, params_);
+    std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, map, params_);
     new_particles_.push_back(new_particle);
   }
   ROS_INFO_STREAM("Particles initialized");
@@ -33,11 +31,10 @@ ParticleFilter::ParticleFilter(int N, float width, float height, TopDownMapPolar
   gmm_thread_ = new std::thread(std::bind(&ParticleFilter::gmmThread, this));
 }
 
-//In the future this function should take in a motion prior
 void ParticleFilter::propagate(Eigen::Vector2f &trans, float omega) {
   particle_lock_.lock();
   for (auto p : particles_) {
-    p->propagate(trans, omega);
+    p->propagate(trans, omega, scale_frozen_);
   }
   particle_lock_.unlock();
 }
@@ -76,7 +73,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
     new_particles_.resize(num_particles_);
   } else {
     while (new_particles_.size() < num_particles_) {
-      new_particles_.push_back(std::make_shared<StateParticle>(gen_, width_, height_, map_, params_));
+      new_particles_.push_back(std::make_shared<StateParticle>(gen_, map_, params_));
     }
   }
   
@@ -99,15 +96,15 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   particle_lock_.unlock();
 }
 
-void ParticleFilter::maxLikelihood(Eigen::Vector3f &state) {
+void ParticleFilter::maxLikelihood(Eigen::Vector4f &state) {
   state = max_likelihood_particle_->mlState();
 }
 
-void ParticleFilter::computeCov(Eigen::Matrix3f &cov) {
+void ParticleFilter::computeCov(Eigen::Matrix4f &cov) {
   cov.setZero();
-  Eigen::Vector3f max_likelihood_state = max_likelihood_particle_->mlState();
+  Eigen::Vector4f max_likelihood_state = max_likelihood_particle_->mlState();
   for (auto particle : particles_) {
-    Eigen::Vector3f state = particle->mlState() - max_likelihood_state;
+    Eigen::Vector4f state = particle->mlState() - max_likelihood_state;
     while (state[2] > M_PI) state[2] -= 2*M_PI;
     while (state[2] < -M_PI) state[2] += 2*M_PI;
     cov += state*state.transpose();
@@ -142,7 +139,7 @@ void ParticleFilter::computeGMM() {
   int num_samples = std::min(1000, static_cast<int>(particles_.size()));
   cv::Mat samples = cv::Mat(num_samples, 4, CV_64F);
   for (int i=0; i<num_samples; i+=1) {
-    Eigen::Vector3f state = particles_[i*particles_.size()/num_samples]->mlState();
+    Eigen::Vector3f state = particles_[i*particles_.size()/num_samples]->mlState().head<3>();
     samples.at<double>(i, 0) = state[0];
     samples.at<double>(i, 1) = state[1];
     samples.at<double>(i, 2) = 50*cos(state[2]);
@@ -196,12 +193,35 @@ void ParticleFilter::computeGMM() {
   gmm_lock_.unlock();
 }
 
+void ParticleFilter::freezeScale() {
+  if (!scale_frozen_) {
+    float geo_mean = 1;
+    for (const auto& p : particles_) {
+      geo_mean *= std::pow(p->state().scale, 1./particles_.size());
+    }
+
+    for (auto& p : particles_) {
+      p->setScale(geo_mean);
+    }
+    scale_frozen_ = true;
+
+    ROS_INFO_STREAM("scale converged and locked to " << geo_mean);
+  }
+}
+
+float ParticleFilter::scale() const {
+  if (scale_frozen_) {
+    return particles_[0]->state().scale;
+  }
+  return -1;
+}
+
 void ParticleFilter::visualize(cv::Mat &img) {
   //Particle dist
   for (auto p : particles_) {
-    Eigen::Vector3f state = p->mlState();
-    cv::Point pt(state[0]*map_->scale(), 
-                 img.size().height-state[1]*map_->scale());
+    Eigen::Vector3f state = p->mlState().head<3>();
+    cv::Point pt(state[0], 
+                 img.size().height-state[1]);
     cv::Point dir(cos(state[2])*5, -sin(state[2])*5);
     cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(0,0,255), 2, CV_AA, 0, 0.3);
   }
@@ -215,10 +235,10 @@ void ParticleFilter::visualize(cv::Mat &img) {
     Eigen::Vector2f maj_axis = eigensolver.eigenvectors().col(0);
     if (evals[0] < 0 || evals[1] < 0) break; //We better be PSD
 
-    cv::Size size(sqrt(evals[0])*map_->scale(), sqrt(evals[1])*map_->scale());
+    cv::Size size(sqrt(evals[0]), sqrt(evals[1]));
     float angle = atan2(-maj_axis[1], maj_axis[0]);
-    cv::Point center(means_[i][0]*map_->scale(), 
-                     img.size().height-means_[i][1]*map_->scale());
+    cv::Point center(means_[i][0], 
+                     img.size().height-means_[i][1]);
     cv::ellipse(img, center, size*2, angle*180/M_PI, 0, 360, cv::Scalar(255,0,0), 2);
 
     cv::Point dir(cos(means_[i][2])*5, -sin(means_[i][2])*5);
@@ -226,15 +246,15 @@ void ParticleFilter::visualize(cv::Mat &img) {
 
     //relative pose stuff
     //ROS_INFO_STREAM(best_rel_pos_[1]);
-    cv::Point rel_pt(best_rel_pos_[0]*cos(best_rel_pos_[1]+means_[i][2])*map_->scale(), 
-                     best_rel_pos_[0]*sin(best_rel_pos_[1]+means_[i][2])*map_->scale());
+    cv::Point rel_pt(best_rel_pos_[0]*cos(best_rel_pos_[1]+means_[i][2]), 
+                     best_rel_pos_[0]*sin(best_rel_pos_[1]+means_[i][2]));
     cv::circle(img, rel_pt+center, 3, cv::Scalar(0,255,0), -1);
   }
   gmm_lock_.unlock();
   //Max likelihood
-  Eigen::Vector3f ml_state = max_likelihood_particle_->mlState();
-  cv::Point pt(ml_state[0]*map_->scale(), 
-               img.size().height-ml_state[1]*map_->scale());
+  Eigen::Vector3f ml_state = max_likelihood_particle_->mlState().head<3>();
+  cv::Point pt(ml_state[0], 
+               img.size().height-ml_state[1]);
   cv::Point dir(cos(ml_state[2])*5, -sin(ml_state[2])*5);
   cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
 }

@@ -43,7 +43,7 @@ void TopDownRender::initialize() {
   nh_.getParam("map", map_path);
   background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
 
-  float svg_res = 1;
+  float svg_res = -1;
   float raster_res = 1;
   bool estimate_scale = true;
   if (nh_.getParam("svg_res", svg_res) && nh_.getParam("raster_res", raster_res)) {
@@ -60,6 +60,11 @@ void TopDownRender::initialize() {
   nh_.param<float>("filter_pos_cov", filter_params.pos_cov, 0.3);
   nh_.param<float>("filter_theta_cov", filter_params.theta_cov, M_PI/100);
   nh_.param<float>("filter_regularization", filter_params.regularization, 0.15);
+  if (!estimate_scale) {
+    filter_params.fixed_scale = svg_res;
+  } else {
+    filter_params.fixed_scale = -1;
+  }
 
   bool use_raster;
   nh_.param<bool>("use_raster", use_raster, false);
@@ -69,26 +74,16 @@ void TopDownRender::initialize() {
   img_pub_.publish(img_msg);
 
   if (use_raster) {
-    map_ = new TopDownMapPolar(map_path, color_lut_, 6, 6, svg_res, raster_res);
+    map_ = new TopDownMapPolar(map_path, color_lut_, 6, 6, raster_res);
   } else {
-    map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, svg_res, raster_res);
+    map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, raster_res);
   }
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
-  filter_ = new ParticleFilter(2000, background_img_.size().width/svg_res, 
-                               background_img_.size().height/svg_res, map_, filter_params);
+  filter_ = new ParticleFilter(10000, map_, filter_params);
   renderer_ = new ScanRendererPolar();
 
   //static transform broadcaster for map viz
-  static_broadcaster_ = new tf2_ros::StaticTransformBroadcaster(); 
-  geometry_msgs::TransformStamped map_svg_transform;
-  map_svg_transform.header.stamp = ros::Time::now();
-  map_svg_transform.header.frame_id = "world";
-  map_svg_transform.child_frame_id = "sem_map";
-  map_svg_transform.transform.translation.x = (background_img_.size().width/2-svg_origin_x)/svg_res;
-  map_svg_transform.transform.translation.y = (background_img_.size().height/2-svg_origin_y)/svg_res;
-  map_svg_transform.transform.translation.z = -2;
-  map_svg_transform.transform.rotation.x = 1; //identity rot
-  static_broadcaster_->sendTransform(map_svg_transform);
+  tf2_broadcaster_ = new tf2_ros::TransformBroadcaster(); 
 
   ROS_INFO_STREAM("Setup complete");
 
@@ -219,8 +214,8 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   //Draw gt pose
   Eigen::Vector2f front(2,0);
   front = gt_pose_.linear()*front;
-  cv::Point img_rot(front[0]*map_->scale(), -front[1]*map_->scale());
-  cv::Point img_pos(gt_pose_.translation()[0]*map_->scale(), -gt_pose_.translation()[1]*map_->scale());
+  cv::Point img_rot(front[0], -front[1]);
+  cv::Point img_pos(gt_pose_.translation()[0], -gt_pose_.translation()[1]);
   cv::arrowedLine(background_copy, map_center_+img_pos-img_rot, map_center_+img_pos+img_rot, 
                   cv::Scalar(0,255,0), 2, CV_AA, 0, 0.3);
 
@@ -279,7 +274,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
 
   //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
   updateFilter(top_down, top_down_geo, current_res_, delta_pose, img_header);
-  Eigen::Matrix3f cov;
+  Eigen::Matrix4f cov;
   filter_->computeCov(cov);
 
   if (std::max(cov(0,0), cov(1,1)) > 15 && current_res_ < 4) {
@@ -290,19 +285,29 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
     current_res_ -= 0.02;
   }
 
-  //Only publish if converged to unimodal dist
-  if (cov(0,0) < 50 && cov(1,1) < 50 && cov(2,2) < 0.5) {
-    //get max likelihood state
-    Eigen::Vector3f ml_state;
-    filter_->maxLikelihood(ml_state);
+  //get max likelihood state
+  Eigen::Vector4f ml_state;
+  filter_->maxLikelihood(ml_state);
 
+  ROS_INFO_STREAM("scale uncertainty: " << cov(3,3));
+  if (cov(3,3) < 0.002) {
+    //freeze scale
+    ROS_INFO_STREAM("scale: " << ml_state[3]);
+    filter_->freezeScale();
+  }
+
+  //Only publish if converged to unimodal dist
+  if (cov(0,0) < 50 && cov(1,1) < 50 && cov(2,2) < 0.5 && filter_->scale() > 0) {
     geometry_msgs::PoseWithCovarianceStamped pose;
     pose.header = pcl_conversions::fromPCL(cloud->header);
     pose.header.frame_id = "world";
 
+    float scale = filter_->scale();
+    float scale_2 = scale*scale;
+
     //pose
-    pose.pose.pose.position.x = ml_state[0] - map_center_.x/map_->scale();
-    pose.pose.pose.position.y = ml_state[1] - (background_img_.size().height-map_center_.y)/map_->scale();
+    pose.pose.pose.position.x = (ml_state[0] - map_center_.x)/scale;
+    pose.pose.pose.position.y = (ml_state[1] - (background_img_.size().height-map_center_.y))/scale;
     pose.pose.pose.position.z = 2;
     pose.pose.pose.orientation.x = 0;
     pose.pose.pose.orientation.y = 0;
@@ -310,17 +315,27 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
     pose.pose.pose.orientation.w = cos(ml_state[2]/2);
 
     //cov
-    pose.pose.covariance[0] = cov(0,0);
-    pose.pose.covariance[1] = cov(0,1);
-    pose.pose.covariance[5] = cov(0,2);
-    pose.pose.covariance[6] = cov(1,0);
-    pose.pose.covariance[7] = cov(1,1);
-    pose.pose.covariance[11] = cov(1,2);
-    pose.pose.covariance[30] = cov(2,0);
-    pose.pose.covariance[31] = cov(2,1);
+    pose.pose.covariance[0] = cov(0,0)/scale_2;
+    pose.pose.covariance[1] = cov(0,1)/scale_2;
+    pose.pose.covariance[5] = cov(0,2)/scale;
+    pose.pose.covariance[6] = cov(1,0)/scale_2;
+    pose.pose.covariance[7] = cov(1,1)/scale_2;
+    pose.pose.covariance[11] = cov(1,2)/scale;
+    pose.pose.covariance[30] = cov(2,0)/scale;
+    pose.pose.covariance[31] = cov(2,1)/scale;
     pose.pose.covariance[35] = cov(2,2);
 
     pose_pub_.publish(pose);
+
+    geometry_msgs::TransformStamped map_svg_transform;
+    map_svg_transform.header.stamp = pcl_conversions::fromPCL(cloud->header.stamp);
+    map_svg_transform.header.frame_id = "world";
+    map_svg_transform.child_frame_id = "sem_map";
+    map_svg_transform.transform.translation.x = (background_img_.size().width/2-map_center_.x)/scale;
+    map_svg_transform.transform.translation.y = -(background_img_.size().height/2-map_center_.y)/scale;
+    map_svg_transform.transform.translation.z = -2;
+    map_svg_transform.transform.rotation.x = 1; //identity rot
+    tf2_broadcaster_->sendTransform(map_svg_transform);
   }
 
   //Normal visualization

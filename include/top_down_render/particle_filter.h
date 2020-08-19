@@ -16,27 +16,29 @@
 
 class ParticleFilter {
   public:
-    ParticleFilter(int N, float width, float height, TopDownMapPolar *map, FilterParams &params);
+    ParticleFilter(int N, TopDownMapPolar *map, FilterParams &params);
     void propagate(Eigen::Vector2f &trans, float omega);
     void update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                 std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
-    void computeCov(Eigen::Matrix3f &cov);
-    void maxLikelihood(Eigen::Vector3f &state);
+    void computeCov(Eigen::Matrix4f &cov);
+    void maxLikelihood(Eigen::Vector4f &state);
     void getGMM(std::vector<Eigen::Vector3f> &means, std::vector<Eigen::Matrix3f> &covs);
     void visualize(cv::Mat &img);
+    void freezeScale();
+    float scale() const;
   private:
     int num_particles_;
     std::mutex particle_lock_;
     std::vector<std::shared_ptr<StateParticle>> particles_;
     std::vector<std::shared_ptr<StateParticle>> new_particles_;
 
+    bool scale_frozen_ = false;
+
     std::shared_ptr<StateParticle> max_likelihood_particle_;
     std::mt19937 *gen_;
     Eigen::VectorXf weights_;
     TopDownMapPolar* map_;
     ActiveLocalizer* active_loc_;
-    float width_;
-    float height_;
 
     FilterParams params_;
 
