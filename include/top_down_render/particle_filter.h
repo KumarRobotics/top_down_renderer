@@ -28,6 +28,7 @@ class ParticleFilter {
     float scale() const;
   private:
     int num_particles_;
+    int max_num_particles_;
     std::mutex particle_lock_;
     std::vector<std::shared_ptr<StateParticle>> particles_;
     std::vector<std::shared_ptr<StateParticle>> new_particles_;

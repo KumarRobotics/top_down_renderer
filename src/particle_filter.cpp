@@ -4,24 +4,33 @@ ParticleFilter::ParticleFilter(int N, TopDownMapPolar *map, FilterParams &params
   std::random_device rd;
   gen_ = new std::mt19937(rd());
 
-  num_particles_ = N;
   num_gaussians_ = 1;
   map_ = map;
   params_ = params;
+  max_num_particles_ = N;
 
   //Weights should be even
   ROS_INFO_STREAM("Initializing particles...");
-  weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(num_particles_)/num_particles_;
-  for (int i=0; i<num_particles_; i++) {
-    std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, map, params_);
-    particles_.push_back(particle);
+  for (int i=0; i<N/10; i++) {
+    StateParticle proto_part(gen_, map, params_);
+    for (float scale=-1; scale<1; scale+=0.2) {
+      std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, map, params_);
+      if (params_.fixed_scale < 0) {
+        particle->setState(proto_part.state());
+        particle->setScale(std::pow(10., scale));
+      }
+      particles_.push_back(particle);
 
-    //Allocate memory for new array too, then we can swap back and forth without allocating
-    std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, map, params_);
-    new_particles_.push_back(new_particle);
+      //Allocate memory for new array too, then we can swap back and forth without allocating
+      std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, map, params_);
+      new_particles_.push_back(new_particle);
+    }
   }
   ROS_INFO_STREAM("Particles initialized");
   max_likelihood_particle_ = particles_[0];
+
+  num_particles_ = particles_.size();
+  weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(num_particles_)/num_particles_;
 
   best_rel_pos_ = Eigen::Vector2f(0,0);
   active_loc_ = new ActiveLocalizer(map);
@@ -46,10 +55,11 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   std::for_each(std::execution::par, particles_.begin(), particles_.end(), 
                 std::bind(&StateParticle::computeWeight, std::placeholders::_1, top_down_scan, top_down_geo, res));
 
-  weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(num_particles_)/num_particles_;
+  weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(particles_.size())/particles_.size();
   for (int i; i<particles_.size(); i++) {
     weights_[i] = particles_[i]->weight();
   }
+  ROS_INFO_STREAM("particle weights: " << weights_.sum());
   weights_ = weights_/weights_.sum(); //Renormalize
 
   //Find the maximum likelihood particle
@@ -65,7 +75,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
     Eigen::Vector2cf eig = cov.block<2,2>(0,0).eigenvalues(); //complex vector
     num_particles_ += static_cast<int>(sqrt(eig[0].real())*sqrt(eig[1].real()))*5; //Approximation of area of cov ellipse
   }
-  num_particles_ = std::min(std::max(num_particles_, 3*last_num_particles/4+10), 10000); //bounds
+  num_particles_ = std::min(std::max(num_particles_, 3*last_num_particles/4+10), max_num_particles_); //bounds
   ROS_INFO_STREAM(num_particles_ << " particles");
 
   //resize num_particles_

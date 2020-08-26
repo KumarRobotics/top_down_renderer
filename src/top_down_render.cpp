@@ -80,7 +80,7 @@ void TopDownRender::initialize() {
     map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, raster_res);
   }
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
-  filter_ = new ParticleFilter(10000, map_, filter_params);
+  filter_ = new ParticleFilter(20000, map_, filter_params);
   renderer_ = new ScanRendererPolar();
 
   //static transform broadcaster for map viz

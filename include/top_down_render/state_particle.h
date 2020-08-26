@@ -6,18 +6,14 @@
 #include <random>
 #include <chrono>
 
-typedef struct ThetaParticle {
-  float theta;
-  float weight;
-} ThetaParticle;
-
 typedef struct State {
   float init_x_px;
   float init_y_px;
   float dx_m = 0;
   float dy_m = 0;
+  float theta;
   float scale; //px/m
-  std::shared_ptr<std::vector<ThetaParticle>> theta_particles;
+  bool have_init;
 } State;
 
 typedef struct FilterParams {
@@ -38,7 +34,6 @@ class StateParticle {
     void computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                        std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
     float weight();
-    float thetaCov();
     void setScale(float scale);
   private:
     //State
@@ -46,7 +41,6 @@ class StateParticle {
     float width_;
     float height_;
     float weight_;
-    float ml_theta_;
     TopDownMapPolar *map_;
     std::mt19937 *gen_;
 
@@ -57,7 +51,6 @@ class StateParticle {
                         std::vector<Eigen::ArrayXXf> &top_down_geo,
                         std::vector<Eigen::ArrayXXf> &classes,
                         std::vector<Eigen::ArrayXXf> &geo_cls, float rot);
-    void resampleParticles(int num_part);
 };
 
 #endif //STATE_PARTICLE_H_
