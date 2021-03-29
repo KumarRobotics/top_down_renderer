@@ -44,10 +44,10 @@ class TopDownRender {
     ros::Subscriber gt_pose_sub_;
     ros::Publisher pose_pub_;
     ros::Publisher scale_pub_;
-    image_transport::Publisher img_pub_;
+    image_transport::Publisher map_pub_;
     image_transport::Publisher scan_pub_;
     image_transport::Publisher geo_scan_pub_;
-    image_transport::Publisher map_pub_;
+    image_transport::Publisher debug_pub_;
 
     Eigen::Affine2f gt_pose_;
     Eigen::Affine3f last_prior_pose_;

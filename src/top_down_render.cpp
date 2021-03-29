@@ -25,10 +25,10 @@ void TopDownRender::initialize() {
   pose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_est", 1);
   scale_pub_ = nh_.advertise<std_msgs::Float32>("scale", 1);
   it_ = new image_transport::ImageTransport(nh_);
-  img_pub_ = it_->advertise("img", 1);
+  map_pub_ = it_->advertise("map", 1);
   scan_pub_ = it_->advertise("scan", 1);
   geo_scan_pub_ = it_->advertise("geo_scan", 1);
-  map_pub_ = it_->advertise("map_max", 1);
+  debug_pub_ = it_->advertise("debug", 1);
 
   //This order determines priority as well
   color_lut_ = cv::Mat::ones(256, 1, CV_8UC3)*255;
@@ -71,9 +71,12 @@ void TopDownRender::initialize() {
   bool use_raster;
   nh_.param<bool>("use_raster", use_raster, false);
 
+  int particle_count;
+  nh_.param<int>("particle_count", particle_count, 20000);
+
   //Publish the map image
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_img_).toImageMsg();
-  img_pub_.publish(img_msg);
+  map_pub_.publish(img_msg);
 
   //DEBUG FOR VISUALIZATION
   //ros::Rate rate(1);
@@ -98,7 +101,7 @@ void TopDownRender::initialize() {
     map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, raster_res);
   }
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
-  filter_ = new ParticleFilter(20000, map_, filter_params);
+  filter_ = new ParticleFilter(particle_count, map_, filter_params);
   renderer_ = new ScanRendererPolar();
 
   //static transform broadcaster for map viz
@@ -191,7 +194,7 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
   //Convert to ROS and publish
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", map_color).toImageMsg();
   img_msg->header = header;
-  map_pub_.publish(img_msg);
+  debug_pub_.publish(img_msg);
 }
 
 void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
@@ -224,7 +227,7 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   //Publish visualization
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_copy).toImageMsg();
   img_msg->header = header;
-  img_pub_.publish(img_msg);
+  map_pub_.publish(img_msg);
 }
 
 void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud,
