@@ -120,7 +120,7 @@ void MapRefiner::saveUpdatedMaps(const std::string &path, const std::vector<cv::
         }
       }
 
-      if (have_new_data) {
+      if (false) {
         //Can only have one of the exclusive classes set
         size_t best_ex_class_count = 0;
         size_t best_ex_class = num_classes_+1;
@@ -161,11 +161,11 @@ void MapRefiner::saveUpdatedMaps(const std::string &path, const std::vector<cv::
     }
   }
 
-  cv::imwrite(path+"/refined_map_viz.png", map_viz);
+  cv::imwrite(path+"/map_viz.png", map_viz);
 
-  for (size_t cls=0; cls<num_classes_; cls++) {
-    cv::imwrite(path+"/refined_class"+std::to_string(cls)+".png", refined_maps[cls]);
-  }
+  //for (size_t cls=0; cls<num_classes_; cls++) {
+  //  cv::imwrite(path+"/refined_class"+std::to_string(cls)+".png", refined_maps[cls]);
+  //}
 }
 
 void MapRefiner::refineMap() {

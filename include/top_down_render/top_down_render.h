@@ -7,6 +7,7 @@
 #include <Eigen/Dense>
 #include <chrono>
 #include <ros/ros.h>
+#include <std_msgs/Float32.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -42,6 +43,7 @@ class TopDownRender {
 
     ros::Subscriber gt_pose_sub_;
     ros::Publisher pose_pub_;
+    ros::Publisher scale_pub_;
     image_transport::Publisher img_pub_;
     image_transport::Publisher scan_pub_;
     image_transport::Publisher geo_scan_pub_;
@@ -57,10 +59,11 @@ class TopDownRender {
     ScanRendererPolar *renderer_;
 
     float current_res_ = 4; //m/px range
+    bool is_converged_ = false;
 
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
-    void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header);
+    void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header, TopDownMap *map);
     void visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img);
     cv::Mat visualizeAnalog(Eigen::ArrayXXf &cls, float scale);
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 

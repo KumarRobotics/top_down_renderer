@@ -9,11 +9,18 @@ ParticleFilter::ParticleFilter(int N, TopDownMapPolar *map, FilterParams &params
   params_ = params;
   max_num_particles_ = N;
 
+  size_t num_at_scale = 1;
+  if (params_.fixed_scale < 0) {
+    num_at_scale = 10;
+  } else {
+    scale_frozen_ = true;
+  }
+
   //Weights should be even
   ROS_INFO_STREAM("Initializing particles...");
-  for (int i=0; i<N/10; i++) {
+  for (int i=0; i<N/num_at_scale; i++) {
     StateParticle proto_part(gen_, map, params_);
-    for (float scale=-1; scale<1; scale+=0.2) {
+    for (float scale=0; scale<1; scale+=1./num_at_scale) {
       std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, map, params_);
       if (params_.fixed_scale < 0) {
         particle->setState(proto_part.state());
@@ -104,6 +111,34 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   }
   particles_.swap(new_particles_);
   particle_lock_.unlock();
+}
+
+void ParticleFilter::meanLikelihood(Eigen::Vector4f &mean_state) {
+  mean_state = Eigen::Vector4f::Zero();
+  float cos_sum = 0;
+  float sin_sum = 0;
+  for (auto particle : particles_) {
+    Eigen::Vector4f state = particle->mlState();
+    mean_state += state;
+    cos_sum += cos(state[2]);
+    sin_sum += sin(state[2]);
+  }
+  mean_state /= particles_.size();
+  mean_state[2] = atan2(sin_sum/particles_.size(), cos_sum/particles_.size());
+}
+
+void ParticleFilter::computeMeanCov(Eigen::Matrix4f &cov) {
+  cov.setZero();
+  Eigen::Vector4f mean_likelihood_state;
+  meanLikelihood(mean_likelihood_state);
+
+  for (auto particle : particles_) {
+    Eigen::Vector4f state = particle->mlState() - mean_likelihood_state;
+    while (state[2] > M_PI) state[2] -= 2*M_PI;
+    while (state[2] < -M_PI) state[2] += 2*M_PI;
+    cov += state*state.transpose();
+  }
+  cov /= particles_.size()-1;
 }
 
 void ParticleFilter::maxLikelihood(Eigen::Vector4f &state) {
@@ -256,9 +291,9 @@ void ParticleFilter::visualize(cv::Mat &img) {
 
     //relative pose stuff
     //ROS_INFO_STREAM(best_rel_pos_[1]);
-    cv::Point rel_pt(best_rel_pos_[0]*cos(best_rel_pos_[1]+means_[i][2]), 
-                     best_rel_pos_[0]*sin(best_rel_pos_[1]+means_[i][2]));
-    cv::circle(img, rel_pt+center, 3, cv::Scalar(0,255,0), -1);
+    //cv::Point rel_pt(best_rel_pos_[0]*cos(best_rel_pos_[1]+means_[i][2]), 
+    //                 best_rel_pos_[0]*sin(best_rel_pos_[1]+means_[i][2]));
+    //cv::circle(img, rel_pt+center, 3, cv::Scalar(0,255,0), -1);
   }
   gmm_lock_.unlock();
   //Max likelihood

@@ -7,12 +7,14 @@ StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterPara
 
   std::vector<int> cls_vec;
   Eigen::Vector2f map_size = map->size().cast<float>() * map->resolution();
+
+  if (params_.fixed_scale < 0) {
+    state_.scale = std::pow(10, (dist(*gen)-0.5)*2);
+  } else {
+    state_.scale = params_.fixed_scale;
+  }
+
   while (true) {
-    if (params_.fixed_scale < 0) {
-      state_.scale = std::pow(10, (dist(*gen)-0.5)*2);
-    } else {
-      state_.scale = params_.fixed_scale;
-    }
     state_.init_x_px = dist(*gen)*map_size[0];
     state_.init_y_px = dist(*gen)*map_size[1];
     map->getClassesAtPoint(Eigen::Vector2i(state_.init_x_px, state_.init_y_px), cls_vec);
@@ -20,6 +22,7 @@ StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterPara
       break; //Particle is on the road
     }
   }
+
   state_.theta = 0;
   state_.have_init = false;
 
@@ -45,13 +48,14 @@ void StateParticle::propagate(Eigen::Vector2f &trans, float omega, bool scale_fr
   //std::normal_distribution<float> theta_dist{0, M_PI/30};
   std::normal_distribution<float> disp_dist{0, params_.pos_cov};
   std::normal_distribution<float> theta_dist{0, params_.theta_cov};
-  
+
+  state_.theta += theta_dist(*gen_) + omega;
   state_.dx_m += disp_dist(*gen_);
   state_.dy_m += disp_dist(*gen_);
-  state_.theta += theta_dist(*gen_) + omega;
 
   if (!scale_freeze) {
-    std::normal_distribution<float> scale_dist{1, 0.01};
+    float dist = std::sqrt(std::pow(state_.dx_m, 2) + std::pow(state_.dy_m, 2));
+    std::normal_distribution<float> scale_dist{1, std::min(2./dist, 0.02)};
     state_.scale *= scale_dist(*gen_);
   }
 }
@@ -99,6 +103,8 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
   float cost = 0;
   float normalization = 0;
   for (int i=0; i<map_->numClasses(); i++) {
+    //if (i == 4) continue; //ignore trees
+    //if (i == 3) continue; //ignore buildings
     //semantic cost
     cost += (top_down_scan[i].topRows(rot_shift) * classes[i].bottomRows(rot_shift)).sum()*0.01*class_weights_[i];
     cost += (top_down_scan[i].bottomRows(num_bins-rot_shift) * classes[i].topRows(num_bins-rot_shift)).sum()*0.01*class_weights_[i];
@@ -126,10 +132,12 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
 
 void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                                   std::vector<Eigen::ArrayXXf> &top_down_geo, float res) {
+  auto start = std::chrono::high_resolution_clock::now();
+
   Eigen::Vector2f center(state_.dx_m*state_.scale + state_.init_x_px, 
                          state_.dy_m*state_.scale + state_.init_y_px);
   if (center[0] < 0 || center[1] < 0 || center[0] > width_ || center[1] > height_ ||
-      state_.scale < std::pow(10, -0.25) || state_.scale > std::pow(10, 0.25)) {
+      state_.scale < std::pow(10, -0.1) || state_.scale > std::pow(10, 1)) {
     weight_ = 0;
     return;
   }
@@ -145,6 +153,8 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
 
   map_->getLocalMap(center, state_.scale, res, classes);
   map_->getLocalGeoMap(center, state_.scale, res, geo_cls);
+  
+  auto mid = std::chrono::high_resolution_clock::now();
 
   float best_cost = 1e10;
   float best_theta = 0;
@@ -164,4 +174,10 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
   }
 
   weight_ = 1./(best_cost + params_.regularization);
+
+  auto end = std::chrono::high_resolution_clock::now();
+
+  //ROS_INFO_STREAM("overall: " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us");
+  //ROS_INFO_STREAM("render: " << std::chrono::duration_cast<std::chrono::microseconds>(mid - start).count() << "us");
+  //ROS_INFO_STREAM("cost: " << std::chrono::duration_cast<std::chrono::microseconds>(end - mid).count() << "us");
 }
