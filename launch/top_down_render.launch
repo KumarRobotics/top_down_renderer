@@ -8,6 +8,7 @@
     <!--remap from="~/pc" to="/husky/lidar_points"/-->
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <param name="raster_res" value="1"/>
+    <param name="particle_count" value="3000"/>
     
     <!--
     <param name="map" value="$(find top_down_render)/maps/pennovation"/>
@@ -37,7 +38,7 @@
     <param name="use_raster" value="False"/>
     <!--param name="map" value="$(find top_down_render)/maps/morgantown"/-->
     <!--param name="map" value="$(find top_down_render)/maps/ucity"/-->
-    <param name="map" value="$(find top_down_render)/maps/pennovation2"/>
+    <param name="map_path" value="$(find top_down_render)/maps/pennovation2"/>
     <!--param name="svg_res" value="1.31"/--> <!--morgantown-->
     <!--param name="svg_res" value="1.097"/--> <!--ucity-->
     <param name="svg_res" value="5.07"/> <!--pennovation2-->

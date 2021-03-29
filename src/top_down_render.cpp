@@ -41,7 +41,7 @@ void TopDownRender::initialize() {
   color_lut_.at<cv::Vec3b>(6) = cv::Vec3b(255,255,0);   //car
 
   std::string map_path;
-  nh_.getParam("map", map_path);
+  nh_.getParam("map_path", map_path);
   background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
 
   float svg_res = -1;

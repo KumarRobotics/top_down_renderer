@@ -37,7 +37,7 @@
     -->
     <param name="use_raster" value="True"/>
     <!--param name="map" value="$(find top_down_render)/maps/morgantown"/-->
-    <param name="map" value="$(find top_down_render)/maps/kitti0"/>
+    <param name="map_path" value="$(find top_down_render)/maps/kitti0"/>
     <!--param name="map" value="$(find top_down_render)/maps/kitti9"/-->
     <param name="svg_res" value="3.0671"/> <!--kitti0-->
     <!--param name="svg_res" value="2.905"/--> <!--kitti9-->
