@@ -3,20 +3,26 @@
 StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams &params) {
   params_ = params;
   gen_ = gen;
-  std::uniform_real_distribution<float> dist(0.,1.);
+  std::uniform_real_distribution<float> uniform_dist(0.,1.);
+  std::normal_distribution<float> normal_dist(0., 1.);
 
   std::vector<int> cls_vec;
   Eigen::Vector2f map_size = map->size().cast<float>() * map->resolution();
 
   if (params_.fixed_scale < 0) {
-    state_.scale = std::pow(10, (dist(*gen)-0.5)*2);
+    state_.scale = std::pow(10, (uniform_dist(*gen)-0.5)*2);
   } else {
     state_.scale = params_.fixed_scale;
   }
 
   while (true) {
-    state_.init_x_px = dist(*gen)*map_size[0];
-    state_.init_y_px = dist(*gen)*map_size[1];
+    if (params_.init_pos_px_x > 0) { 
+      state_.init_x_px = std::clamp<float>(normal_dist(*gen)*params_.init_pos_px_cov + params_.init_pos_px_x, 0, map_size[0]);
+      state_.init_y_px = std::clamp<float>(normal_dist(*gen)*params_.init_pos_px_cov + params_.init_pos_px_y, 0, map_size[1]);
+    } else {
+      state_.init_x_px = uniform_dist(*gen)*map_size[0];
+      state_.init_y_px = uniform_dist(*gen)*map_size[1];
+    }
     map->getClassesAtPoint(Eigen::Vector2i(state_.init_x_px, state_.init_y_px), cls_vec);
     if (std::find(cls_vec.begin(), cls_vec.end(), 1) != cls_vec.end()) {
       break; //Particle is on the road
@@ -31,11 +37,11 @@ StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterPara
   height_ = map_size[1];
   weight_ = 0;
 
-  class_weights_.push_back(0.75); //terrain
+  class_weights_.push_back(0.5); //terrain
   class_weights_.push_back(2);    //road
   class_weights_.push_back(1.5);  //dirt road
   class_weights_.push_back(1.5);  //building
-  class_weights_.push_back(0.5);  //trees
+  class_weights_.push_back(1.5);  //trees
   class_weights_.push_back(0);
 }
 

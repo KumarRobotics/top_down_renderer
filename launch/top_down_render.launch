@@ -8,7 +8,7 @@
     <!--remap from="~/pc" to="/husky/lidar_points"/-->
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <param name="raster_res" value="1"/>
-    <param name="particle_count" value="3000"/>
+    <param name="particle_count" value="1000"/>
     
     <!--
     <param name="map" value="$(find top_down_render)/maps/pennovation"/>
@@ -52,10 +52,13 @@
     <param name="svg_origin_y" value="0"/>
     <param name="use_motion_prior" value="True"/>
     -->
+    <param name="init_pos_px_x" value="-1"/>
+    <param name="init_pos_px_y" value="977"/>
+    <param name="init_pos_px_cov" value="100"/>
 
     <param name="filter_pos_cov" value="0.15"/>
     <param name="filter_theta_cov" value="0.004"/>
-    <param name="filter_regularization" value="0.3"/>
+    <param name="filter_regularization" value="0.5"/>
 
     <remap from="~/pose_est" to="/subt/sem_pose" />
     <remap from="~/motion_prior" to="/subt/integrated_pose"/>
@@ -64,7 +67,12 @@
   <include file="$(find depth_atlas)/launch/mapper.launch">
   </include>
 
+  <!--
   <include file="$(find image_folder_sync)/launch/image_folder_sync.launch">
+  </include>
+  -->
+
+  <include file="$(find inference)/launch/inference.launch">
   </include>
 
   <node pkg="tf2_ros" type="static_transform_publisher" name="world_map" args="0 0 0 0 0 0 1 world map" />

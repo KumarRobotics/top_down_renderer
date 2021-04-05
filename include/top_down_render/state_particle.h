@@ -21,6 +21,9 @@ typedef struct FilterParams {
   float theta_cov;
   float regularization;
   float fixed_scale = -1;
+  float init_pos_px_x = -1; 
+  float init_pos_px_y = -1;
+  float init_pos_px_cov = -1;
 } FilterParams;
 
 class StateParticle {

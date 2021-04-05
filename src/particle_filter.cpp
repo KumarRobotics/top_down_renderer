@@ -80,7 +80,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   num_particles_ = 0;
   for (auto cov : covs_) {
     Eigen::Vector2cf eig = cov.block<2,2>(0,0).eigenvalues(); //complex vector
-    num_particles_ += static_cast<int>(sqrt(eig[0].real())*sqrt(eig[1].real()))*5; //Approximation of area of cov ellipse
+    num_particles_ += static_cast<int>(sqrt(eig[0].real())*sqrt(eig[1].real())); //Approximation of area of cov ellipse
   }
   num_particles_ = std::min(std::max(num_particles_, 3*last_num_particles/4+10), max_num_particles_); //bounds
   ROS_INFO_STREAM(num_particles_ << " particles");

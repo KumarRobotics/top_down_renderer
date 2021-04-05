@@ -68,6 +68,10 @@ void TopDownRender::initialize() {
     filter_params.fixed_scale = -1;
   }
 
+  nh_.param<float>("init_pos_px_x", filter_params.init_pos_px_x, -1);
+  nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
+  nh_.param<float>("init_pos_px_cov", filter_params.init_pos_px_cov, -1);
+
   bool use_raster;
   nh_.param<bool>("use_raster", use_raster, false);
 
