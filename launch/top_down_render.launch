@@ -52,16 +52,16 @@
     <param name="svg_origin_y" value="0"/>
     <param name="use_motion_prior" value="True"/>
     -->
-    <param name="init_pos_px_x" value="-1"/>
+    <param name="init_pos_px_x" value="1200"/>
     <param name="init_pos_px_y" value="977"/>
-    <param name="init_pos_px_cov" value="100"/>
+    <param name="init_pos_px_cov" value="50"/>
 
     <param name="filter_pos_cov" value="0.15"/>
     <param name="filter_theta_cov" value="0.004"/>
-    <param name="filter_regularization" value="0.5"/>
+    <param name="filter_regularization" value="0.7"/>
 
-    <remap from="~/pose_est" to="/subt/sem_pose" />
-    <remap from="~/motion_prior" to="/subt/integrated_pose"/>
+    <remap from="~/pose_est" to="/upslam/sem_pose" />
+    <remap from="~/motion_prior" to="/upslam/integrated_pose"/>
   </node>
 
   <include file="$(find depth_atlas)/launch/mapper.launch">

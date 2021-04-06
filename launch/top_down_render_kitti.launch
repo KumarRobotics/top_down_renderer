@@ -57,8 +57,8 @@
     <param name="filter_theta_cov" value="0.004"/> <!-- normally 0.004 -->
     <param name="filter_regularization" value="0.3"/><!-- 0.3 known scale, 0.15 unknown -->
 
-    <remap from="~/pose_est" to="/subt/sem_pose" />
-    <remap from="~/motion_prior" to="/subt/integrated_pose"/>
+    <remap from="~/pose_est" to="/upslam/sem_pose" />
+    <remap from="~/motion_prior" to="/upslam/integrated_pose"/>
   </node>
 
   <include file="$(find depth_atlas)/launch/mapper_kitti.launch">
