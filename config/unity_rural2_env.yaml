@@ -1,0 +1,8 @@
+map_path: "$(find top_down_render)/maps/unity_rural2_env"
+use_raster: False
+svg_res: 1.72
+svg_origin_x: 497
+svg_origin_y: 317
+#init_pos_px_x: 1200
+#init_pos_px_y: 977
+#init_pos_px_cov: 50
