@@ -200,42 +200,27 @@ void TopDownMap::saveCachedMaps(const std::string &path) {
 //For each cell, compute the distance to other cells
 void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
   ROS_INFO_STREAM("Computing distance maps...");
-  //generate the sample grid
-  Eigen::Array2Xf grid(2, classes[0].rows()*2*classes[0].cols()*2);
-  samplePts(Eigen::Vector2f(0, 0), 0, grid, classes[0].cols()*2, classes[0].rows()*2, 1);
 
-  //This is really inefficient, but it's precomputed so who cares
+  auto start = std::chrono::high_resolution_clock::now();
   for (int cls_id=0; cls_id<classes.size(); cls_id++) {
-    for (int row=0; row<classes[cls_id].rows(); row++) {
-      for (int col=0; col<classes[cls_id].cols(); col++) {
-        if (classes[cls_id](row, col) == 0) continue;
+    //Copy class buffer
+    Eigen::ArrayXXf class_buf = classes[cls_id];
+    cv::Mat class_mat(class_buf.cols(), class_buf.rows(), CV_32FC1, (void*)class_buf.data());
+    cv::Mat binary_class_mat;
+    class_mat.convertTo(binary_class_mat, CV_8UC1);
 
-        float closest_dist = 50; //max distance allowed
+    //When we write to this, we modify the original data
+    cv::Mat dist_mat(classes[cls_id].cols(), classes[cls_id].rows(), CV_32FC1, (void*)classes[cls_id].data());
 
-        //Iterate through all pts
-        for (int comp_row=-closest_dist; comp_row<=closest_dist; comp_row++) {
-          for (int comp_col=-closest_dist; comp_col<=closest_dist; comp_col++) {
-            if (comp_row+row >= classes[cls_id].rows() || comp_col+col >= classes[cls_id].cols() ||
-                comp_row+row < 0 || comp_col+col < 0) continue;
-            //First approximation
-            if (abs(comp_row) > closest_dist || abs(comp_col) > closest_dist) continue;
-            //Verify that pt is of the appropriate class
-            if (classes[cls_id](comp_row+row, comp_col+col) > 0) continue;
+    cv::distanceTransform(binary_class_mat, dist_mat, cv::DIST_L2, cv::DIST_MASK_PRECISE);
+    //Normalize by map res and thresh
+    dist_mat *= resolution_;
+    cv::threshold(dist_mat, dist_mat, 50, 0, cv::THRESH_TRUNC);
 
-            int ind = comp_row+classes[cls_id].rows() + (comp_col+classes[cls_id].cols())*2*classes[cls_id].rows();
-
-            float dist = grid.matrix().col(ind).norm();
-            if (dist < closest_dist) {
-              closest_dist = dist;
-            }
-          }
-        }
-        classes[cls_id](row, col) = closest_dist;
-      }
-    }
-    classes[cls_id] *= resolution_;
     ROS_INFO_STREAM("class " << cls_id << " complete");
   }
+  auto end = std::chrono::high_resolution_clock::now();
+  //ROS_INFO_STREAM("dist gen took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()/1000 << "ms");
 }
 
 void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes) {

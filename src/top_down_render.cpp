@@ -89,7 +89,7 @@ void TopDownRender::initialize() {
   //  ROS_INFO("Debug loop");
   //  //image 1006 x 633
   //  //map_->samplePtsPolar(Eigen::Vector2i(100, 50), 2*M_PI/100);
-  //  publishLocalMap(100, 25, Eigen::Vector2f(1780, background_img_.size().height-214), 3., img_msg->header, cart_map);
+  //  publishLocalMap(500, 500, Eigen::Vector2f(500, 500), 1., img_msg->header, cart_map);
   //  //std::vector<int> classes;
   //  //map_->getClassesAtPoint(Eigen::Vector2f(1447/1.31, 523/1.31), classes);
   //  //for (auto cls : classes) {
@@ -182,7 +182,7 @@ void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &im
 void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header, TopDownMap *map) {
   std::vector<Eigen::ArrayXXf> classes;
   for (int i=0; i<map->numClasses(); i++) {
-    Eigen::ArrayXXf cls(100, 100);
+    Eigen::ArrayXXf cls(h, w);
     classes.push_back(cls);
   }
   map->getLocalMap(center, 0, res, classes);

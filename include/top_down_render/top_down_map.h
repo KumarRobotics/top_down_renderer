@@ -3,11 +3,13 @@
 
 #include <fstream>
 #include <sys/stat.h>
+#include <chrono>
 
 #include <ros/ros.h> //Just for prints
 #include <Eigen/Dense>
 #include <opencv2/core/core.hpp>
 #include <opencv2/core/eigen.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
 #define NANOSVG_CPLUSPLUS
