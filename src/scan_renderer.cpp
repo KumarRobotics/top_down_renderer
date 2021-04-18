@@ -1,18 +1,7 @@
 #include "top_down_render/scan_renderer.h"
 
-ScanRenderer::ScanRenderer() {
-  flatten_lut_ = Eigen::VectorXi::Zero(256);
-  flatten_lut_[100] = 2; //road
-  flatten_lut_[101] = 3; //dirt
-  flatten_lut_[102] = 1; //grass
-  flatten_lut_[2] = 4;   //building
-  flatten_lut_[3] = 4;   //wall
-
-  flatten_lut_[7] = 5;   //vegetation
-  flatten_lut_[8] = 1;   //terrain
-  flatten_lut_[13] = 2;  //car
-  flatten_lut_[14] = 2;  //truck
-  flatten_lut_[15] = 2;  //bus
+ScanRenderer::ScanRenderer(const Eigen::VectorXi &flatten_lut) {
+  flatten_lut_ = flatten_lut;
 }
 
 void ScanRenderer::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 

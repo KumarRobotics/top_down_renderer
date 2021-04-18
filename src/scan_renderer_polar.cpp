@@ -1,6 +1,6 @@
 #include "top_down_render/scan_renderer_polar.h"
 
-ScanRendererPolar::ScanRendererPolar() : ScanRenderer() {
+ScanRendererPolar::ScanRendererPolar(const Eigen::VectorXi &flatten_lut) : ScanRenderer(flatten_lut) {
 }
 
 void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 

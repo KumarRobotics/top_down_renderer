@@ -11,13 +11,23 @@ void TopDownRender::initialize() {
   if (use_motion_prior) {
     pc_sync_sub_ = new message_filters::Subscriber<pcl::PointCloud<pcl::PointXYZRGB>>(nh_, "pc", 50);
     motion_prior_sync_sub_ = new message_filters::Subscriber<geometry_msgs::PoseStamped>(nh_, "motion_prior", 50);
-    sync_sub_ = new message_filters::TimeSynchronizer<pcl::PointCloud<pcl::PointXYZRGB>, geometry_msgs::PoseStamped>(
+    scan_sync_sub_ = new message_filters::TimeSynchronizer<pcl::PointCloud<pcl::PointXYZRGB>, geometry_msgs::PoseStamped>(
                       *pc_sync_sub_, *motion_prior_sync_sub_, 50);
-    sync_sub_->registerCallback(&TopDownRender::pcCallback, this);
+    scan_sync_sub_->registerCallback(&TopDownRender::pcCallback, this);
   } else {
     pc_sub_ = nh_.subscribe<pcl::PointCloud<pcl::PointXYZRGB>>("pc", 10, 
                 std::bind(&TopDownRender::pcCallback, this, std::placeholders::_1, 
                           geometry_msgs::PoseStamped::ConstPtr()));
+  }
+
+  bool live_map;
+  nh_.param<bool>("live_map", live_map, false);
+  if (live_map) {
+    map_image_sub_ = new message_filters::Subscriber<sensor_msgs::Image>(nh_, "map_image", 50);
+    map_loc_sub_ = new message_filters::Subscriber<geometry_msgs::PointStamped>(nh_, "map_loc", 50);
+    live_map_sync_sub_ = new message_filters::TimeSynchronizer<sensor_msgs::Image, geometry_msgs::PointStamped>(
+                          *map_image_sub_, *map_loc_sub_, 50);
+    live_map_sync_sub_->registerCallback(&TopDownRender::liveMapCallback, this);
   }
 
   gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, &TopDownRender::gtPoseCallback, this);
@@ -40,9 +50,19 @@ void TopDownRender::initialize() {
   color_lut_.at<cv::Vec3b>(5) = cv::Vec3b(0,255,0);     //veg
   color_lut_.at<cv::Vec3b>(6) = cv::Vec3b(255,255,0);   //car
 
-  std::string map_path;
-  nh_.getParam("map_path", map_path);
-  background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
+  //Handle inputs
+  flatten_lut_ = Eigen::VectorXi::Zero(256);
+  flatten_lut_[100] = 2; //road
+  flatten_lut_[101] = 3; //dirt
+  flatten_lut_[102] = 1; //grass
+  flatten_lut_[2] = 4;   //building
+  flatten_lut_[3] = 4;   //wall
+
+  flatten_lut_[7] = 5;   //vegetation
+  flatten_lut_[8] = 1;   //terrain
+  flatten_lut_[13] = 2;  //car
+  flatten_lut_[14] = 2;  //truck
+  flatten_lut_[15] = 2;  //bus
 
   float svg_res = -1;
   float raster_res = 1;
@@ -78,9 +98,6 @@ void TopDownRender::initialize() {
   int particle_count;
   nh_.param<int>("particle_count", particle_count, 20000);
 
-  //Publish the map image
-  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_img_).toImageMsg();
-  map_pub_.publish(img_msg);
 
   //DEBUG FOR VISUALIZATION
   //ros::Rate rate(1);
@@ -99,14 +116,25 @@ void TopDownRender::initialize() {
   //}
   //END DEBUG
 
-  if (use_raster) {
-    map_ = new TopDownMapPolar(map_path, color_lut_, 6, 6, raster_res);
+  if (live_map) {
+    map_ = new TopDownMapPolar(color_lut_, 6, 6, raster_res);
   } else {
-    map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, raster_res);
+    std::string map_path;
+    nh_.getParam("map_path", map_path);
+    background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
+    //Publish the map image
+    sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_img_).toImageMsg();
+    map_pub_.publish(img_msg);
+
+    if (use_raster) {
+      map_ = new TopDownMapPolar(map_path, color_lut_, 6, 6, raster_res);
+    } else {
+      map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, raster_res);
+    }
   }
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
   filter_ = new ParticleFilter(particle_count, map_, filter_params);
-  renderer_ = new ScanRendererPolar();
+  renderer_ = new ScanRendererPolar(flatten_lut_);
 
   //static transform broadcaster for map viz
   tf2_broadcaster_ = new tf2_ros::TransformBroadcaster(); 
@@ -237,6 +265,8 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
 void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud,
                                const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
   ROS_INFO_STREAM("pc cb");
+  if (!map_->haveMap()) return;  
+
   auto start = std::chrono::high_resolution_clock::now();
 
   //pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
@@ -363,6 +393,10 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   //{
   //  viewer.spinOnce ();
   //}
+}
+
+void TopDownRender::liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
+                                    const geometry_msgs::PointStamped::ConstPtr &map_loc) {
 }
 
 void TopDownRender::gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose) {

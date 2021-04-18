@@ -5,10 +5,15 @@
 #define NANOSVG_IMPLEMENTATION
 #include "top_down_render/nanosvg.h"
 
-TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res) {
+TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res) {
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
+  have_map_ = false;
+}
+
+TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res) {
+  TopDownMap(color_lut, num_classes, num_ex, res);
 
   if (loadCacheMetaData(path)) {
     loadCachedMaps();
@@ -81,10 +86,14 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
     //Do this after so we can reuse maps
     computeDists(class_maps_);
     computeDists(geo_maps_);
+    have_map_ = true;
     ROS_INFO_STREAM("Rasterization complete");
 
     saveCachedMaps(path);
   }
+}
+
+void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center) {
 }
 
 void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes) {
@@ -115,6 +124,10 @@ Eigen::Vector2i TopDownMap::size() const {
 
 float TopDownMap::resolution() const {
   return resolution_;
+}
+
+bool TopDownMap::haveMap() const {
+  return have_map_;
 }
 
 void TopDownMap::saveRasterizedMaps(const std::string &path) {

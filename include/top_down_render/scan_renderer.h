@@ -11,7 +11,7 @@
 
 class ScanRenderer {
   public:
-    ScanRenderer();
+    ScanRenderer(const Eigen::VectorXi &flatten_lut);
     void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
                                float res, std::vector<Eigen::ArrayXXf> &imgs);
     void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 

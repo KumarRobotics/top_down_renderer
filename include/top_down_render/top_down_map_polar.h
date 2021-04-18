@@ -5,6 +5,7 @@
 
 class TopDownMapPolar : public TopDownMap {
   public:
+    TopDownMapPolar(cv::Mat& color_lut, int num_classes, int num_ex, float res);
     TopDownMapPolar(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res);
 
     //Overriden versions for polar map gen

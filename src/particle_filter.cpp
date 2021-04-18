@@ -238,6 +238,10 @@ void ParticleFilter::computeGMM() {
   gmm_lock_.unlock();
 }
 
+void ParticleFilter::updateMap(const cv::Mat &map, const Eigen::Vector2i& map_center) {
+  map_->updateMap(map, map_center);
+}
+
 void ParticleFilter::freezeScale() {
   if (!scale_frozen_) {
     float geo_mean = 1;

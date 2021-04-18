@@ -30,6 +30,8 @@ class ParticleFilter {
     void visualize(cv::Mat &img);
     void freezeScale();
     float scale() const;
+
+    void updateMap(const cv::Mat &map, const Eigen::Vector2i& map_center);
   private:
     int num_particles_;
     int max_num_particles_;

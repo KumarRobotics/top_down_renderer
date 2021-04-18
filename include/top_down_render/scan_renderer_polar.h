@@ -13,7 +13,7 @@
 
 class ScanRendererPolar : public ScanRenderer {
   public:
-    ScanRendererPolar();
+    ScanRendererPolar(const Eigen::VectorXi &flatten_lut);
     void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
                                float res, float ang_res, std::vector<Eigen::ArrayXXf> &imgs);
     void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 

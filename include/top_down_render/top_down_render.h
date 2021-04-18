@@ -10,6 +10,7 @@
 #include <std_msgs/Float32.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <pcl_ros/point_cloud.h>
@@ -39,7 +40,11 @@ class TopDownRender {
     ros::Subscriber pc_sub_;
     message_filters::Subscriber<pcl::PointCloud<pcl::PointXYZRGB>> *pc_sync_sub_;
     message_filters::Subscriber<geometry_msgs::PoseStamped> *motion_prior_sync_sub_;
-    message_filters::TimeSynchronizer<pcl::PointCloud<pcl::PointXYZRGB>, geometry_msgs::PoseStamped> *sync_sub_;
+    message_filters::TimeSynchronizer<pcl::PointCloud<pcl::PointXYZRGB>, geometry_msgs::PoseStamped> *scan_sync_sub_;
+
+    message_filters::Subscriber<sensor_msgs::Image> *map_image_sub_;
+    message_filters::Subscriber<geometry_msgs::PointStamped> *map_loc_sub_;
+    message_filters::TimeSynchronizer<sensor_msgs::Image, geometry_msgs::PointStamped> *live_map_sync_sub_;
 
     ros::Subscriber gt_pose_sub_;
     ros::Publisher pose_pub_;
@@ -53,6 +58,7 @@ class TopDownRender {
     Eigen::Affine3f last_prior_pose_;
     cv::Point map_center_;
     cv::Mat color_lut_;
+    Eigen::VectorXi flatten_lut_;
     cv::Mat background_img_;
     TopDownMapPolar *map_;
     ParticleFilter *filter_;
@@ -71,6 +77,8 @@ class TopDownRender {
                       Eigen::Affine3f &motion_prior, std_msgs::Header &header);
     void pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr&, 
                     const geometry_msgs::PoseStamped::ConstPtr &motion_prior);
+    void liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
+                         const geometry_msgs::PointStamped::ConstPtr &map_loc);
     void gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose);
 };
 
