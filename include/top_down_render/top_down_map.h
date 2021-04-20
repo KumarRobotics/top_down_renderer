@@ -50,7 +50,7 @@ void read_binary(std::string &filename, Matrix& matrix){
 
 class TopDownMap {
   public:
-    TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res);
+    TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut);
     TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res);
 
     void updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center);
@@ -70,6 +70,7 @@ class TopDownMap {
     int num_classes_;
     int num_exclusive_classes_;
     bool have_map_;
+    Eigen::VectorXi flatten_lut_;
 
     void saveRasterizedMaps(const std::string &path);
     void loadRasterizedMaps(const std::string &path);

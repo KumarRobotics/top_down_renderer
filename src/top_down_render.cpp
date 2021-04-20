@@ -24,9 +24,10 @@ void TopDownRender::initialize() {
   nh_.param<bool>("live_map", live_map, false);
   if (live_map) {
     map_image_sub_ = new message_filters::Subscriber<sensor_msgs::Image>(nh_, "map_image", 50);
+    map_image_viz_sub_ = new message_filters::Subscriber<sensor_msgs::Image>(nh_, "map_image_viz", 50);
     map_loc_sub_ = new message_filters::Subscriber<geometry_msgs::PointStamped>(nh_, "map_loc", 50);
-    live_map_sync_sub_ = new message_filters::TimeSynchronizer<sensor_msgs::Image, geometry_msgs::PointStamped>(
-                          *map_image_sub_, *map_loc_sub_, 50);
+    live_map_sync_sub_ = new message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image, geometry_msgs::PointStamped>(
+                          *map_image_sub_, *map_image_viz_sub_, *map_loc_sub_, 50);
     live_map_sync_sub_->registerCallback(&TopDownRender::liveMapCallback, this);
   }
 
@@ -117,7 +118,7 @@ void TopDownRender::initialize() {
   //END DEBUG
 
   if (live_map) {
-    map_ = new TopDownMapPolar(color_lut_, 6, 6, raster_res);
+    map_ = new TopDownMapPolar(color_lut_, 6, 6, raster_res, flatten_lut_);
   } else {
     std::string map_path;
     nh_.getParam("map_path", map_path);
@@ -396,7 +397,18 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
 }
 
 void TopDownRender::liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
+                                    const sensor_msgs::Image::ConstPtr &map_viz,
                                     const geometry_msgs::PointStamped::ConstPtr &map_loc) {
+  ROS_INFO_STREAM("Got new map");
+  //Convert to cv
+  cv_bridge::CvImageConstPtr map_ptr = cv_bridge::toCvShare(map, sensor_msgs::image_encodings::BGR8);
+  Eigen::Vector2i map_loc_eig(map_loc->point.x, map_loc->point.y);
+
+  //Use colored version for viz
+  background_img_ = cv_bridge::toCvShare(map_viz, sensor_msgs::image_encodings::BGR8)->image.clone();
+  map_center_ = cv::Point(map_loc_eig[0], background_img_.size().height - map_loc_eig[1]);
+
+  filter_->updateMap(map_ptr->image, map_loc_eig);
 }
 
 void TopDownRender::gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose) {

@@ -45,6 +45,12 @@ StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterPara
   class_weights_.push_back(0);
 }
 
+void StateParticle::updateSize() {
+  Eigen::Vector2f map_size = map_->size().cast<float>() * map_->resolution();
+  width_ = map_size[0];
+  height_ = map_size[1];
+}
+
 void StateParticle::propagate(Eigen::Vector2f &trans, float omega, bool scale_freeze) {
   Eigen::Vector2f trans_global = Eigen::Rotation2D<float>(state_.theta) * trans;
   state_.dx_m += trans_global[0];

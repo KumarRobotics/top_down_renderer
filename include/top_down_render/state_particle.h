@@ -38,6 +38,7 @@ class StateParticle {
                        std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
     float weight();
     void setScale(float scale);
+    void updateSize();
   private:
     //State
     State state_;

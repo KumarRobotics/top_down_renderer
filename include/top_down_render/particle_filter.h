@@ -49,6 +49,9 @@ class ParticleFilter {
 
     FilterParams params_;
 
+    Eigen::Vector2i last_map_center_;
+    void initializeParticles();
+
     //GMM stuff
     int num_gaussians_; //Only used in GMM thread
     std::mutex gmm_lock_;

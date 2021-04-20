@@ -8,7 +8,15 @@ ParticleFilter::ParticleFilter(int N, TopDownMapPolar *map, FilterParams &params
   map_ = map;
   params_ = params;
   max_num_particles_ = N;
+  num_particles_ = 0;
+  last_map_center_ = Eigen::Vector2i::Zero();
 
+  if (map_->haveMap()) {
+    initializeParticles();
+  }
+}
+
+void ParticleFilter::initializeParticles() {
   size_t num_at_scale = 1;
   if (params_.fixed_scale < 0) {
     num_at_scale = 10;
@@ -18,10 +26,10 @@ ParticleFilter::ParticleFilter(int N, TopDownMapPolar *map, FilterParams &params
 
   //Weights should be even
   ROS_INFO_STREAM("Initializing particles...");
-  for (int i=0; i<N/num_at_scale; i++) {
-    StateParticle proto_part(gen_, map, params_);
+  for (int i=0; i<max_num_particles_/num_at_scale; i++) {
+    StateParticle proto_part(gen_, map_, params_);
     for (float scale=0; scale<1; scale+=1./num_at_scale) {
-      std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, map, params_);
+      std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, map_, params_);
       if (params_.fixed_scale < 0) {
         particle->setState(proto_part.state());
         particle->setScale(std::pow(10., scale));
@@ -29,22 +37,22 @@ ParticleFilter::ParticleFilter(int N, TopDownMapPolar *map, FilterParams &params
       particles_.push_back(particle);
 
       //Allocate memory for new array too, then we can swap back and forth without allocating
-      std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, map, params_);
+      std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, map_, params_);
       new_particles_.push_back(new_particle);
     }
   }
-  ROS_INFO_STREAM("Particles initialized");
   max_likelihood_particle_ = particles_[0];
 
   num_particles_ = particles_.size();
   weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(num_particles_)/num_particles_;
 
   best_rel_pos_ = Eigen::Vector2f(0,0);
-  active_loc_ = new ActiveLocalizer(map);
+  active_loc_ = new ActiveLocalizer(map_);
 
   //Initialize Gaussians
   computeGMM();
   gmm_thread_ = new std::thread(std::bind(&ParticleFilter::gmmThread, this));
+  ROS_INFO_STREAM("Particles initialized");
 }
 
 void ParticleFilter::propagate(Eigen::Vector2f &trans, float omega) {
@@ -57,6 +65,11 @@ void ParticleFilter::propagate(Eigen::Vector2f &trans, float omega) {
 
 void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                             std::vector<Eigen::ArrayXXf> &top_down_geo, float res) {
+  if (num_particles_ == 0 && map_->haveMap()) {
+    //threads haven't started yet so don't need lock
+    initializeParticles();
+  }
+
   particle_lock_.lock();
   //Recompute weights
   std::for_each(std::execution::par, particles_.begin(), particles_.end(), 
@@ -239,7 +252,21 @@ void ParticleFilter::computeGMM() {
 }
 
 void ParticleFilter::updateMap(const cv::Mat &map, const Eigen::Vector2i& map_center) {
+  ROS_INFO_STREAM("updating map");
+  particle_lock_.lock();
   map_->updateMap(map, map_center);
+
+  ROS_INFO_STREAM("updating particles");
+  Eigen::Vector2i map_center_delta = map_center - last_map_center_;
+  for (auto& particle : particles_) {
+    State s = particle->state();
+    s.init_x_px += map_center_delta[0];
+    s.init_y_px += map_center_delta[1];
+    particle->setState(s);
+    particle->updateSize();
+  }
+  particle_lock_.unlock();
+  last_map_center_ = map_center;
 }
 
 void ParticleFilter::freezeScale() {

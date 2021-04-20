@@ -1,7 +1,7 @@
 #include "top_down_render/top_down_map_polar.h"
 
-TopDownMapPolar::TopDownMapPolar(cv::Mat& color_lut, int num_classes, int num_ex, float res)
-  : TopDownMap(color_lut, num_classes, num_ex, res)
+TopDownMapPolar::TopDownMapPolar(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut)
+  : TopDownMap(color_lut, num_classes, num_ex, res, flatten_lut)
 {
   //Default
   samplePtsPolar(Eigen::Vector2i(100,50), 2*M_PI/100);

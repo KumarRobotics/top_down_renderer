@@ -5,15 +5,18 @@
 #define NANOSVG_IMPLEMENTATION
 #include "top_down_render/nanosvg.h"
 
-TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res) {
+TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut) {
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
   have_map_ = false;
+  flatten_lut_ = flatten_lut;
 }
 
 TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res) {
-  TopDownMap(color_lut, num_classes, num_ex, res);
+  resolution_ = res;
+  num_classes_ = num_classes;
+  num_exclusive_classes_ = num_ex;
 
   if (loadCacheMetaData(path)) {
     loadCachedMaps();
@@ -31,7 +34,7 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
         return;
       }
 
-      for (int cls=1; cls<=num_classes; cls++) {
+      for (size_t cls=1; cls<=num_classes; cls++) {
         std::vector<std::vector<Eigen::Vector2f>> class_poly;
         cv::Vec3b color = color_lut.at<cv::Vec3b>(cls);
         int color_compressed = color[0] << 16 | color[1] << 8 | color[2];
@@ -45,7 +48,7 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
               std::vector<Eigen::Vector2f> eig_path;
               ROS_DEBUG_STREAM("path");
 
-              for (int i=0; i<path->npts-1; i+=3) {
+              for (size_t i=0; i<path->npts-1; i+=3) {
                 float* p = &path->pts[i*2];
                 eig_path.push_back(Eigen::Vector2f(p[0], map->height-p[1]));
                 ROS_DEBUG_STREAM(p[0] << ", " << map->height-p[1]);
@@ -62,7 +65,7 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
 
       //Generate full rasterized map
       ROS_INFO_STREAM("Rasterizing map...");
-      for (int i=0; i<num_classes; i++) {
+      for (size_t i=0; i<num_classes; i++) {
         Eigen::ArrayXXf class_map(static_cast<int>(map->height/resolution_), 
                                   static_cast<int>(map->width/resolution_)); //0 inside obstacles, 1 elsewhere
         class_maps_.push_back(class_map);
@@ -77,7 +80,7 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
       loadRasterizedMaps(path);
     }
 
-    for (int i=0; i<2; i++) {
+    for (size_t i=0; i<2; i++) {
       Eigen::ArrayXXf geo_map(class_maps_[0].cols(), 
                               class_maps_[0].rows()); //0 inside obstacles, 1 elsewhere
       geo_maps_.push_back(geo_map);
@@ -86,14 +89,44 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
     //Do this after so we can reuse maps
     computeDists(class_maps_);
     computeDists(geo_maps_);
-    have_map_ = true;
     ROS_INFO_STREAM("Rasterization complete");
 
     saveCachedMaps(path);
+    have_map_ = true;
   }
 }
 
 void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center) {
+  class_maps_.clear();
+  for (size_t i=0; i<num_classes_; i++) {
+    //0 inside obstacles, 1 elsewhere
+    Eigen::ArrayXXf class_map =
+      Eigen::ArrayXXf::Constant(static_cast<int>(map.size().height/resolution_), 
+                                static_cast<int>(map.size().width/resolution_), 1.0); 
+    class_maps_.push_back(class_map);
+  }
+
+  //Not actually used at the moment
+  geo_maps_.clear();
+  for (size_t i=0; i<2; i++) {
+    Eigen::ArrayXXf geo_map =
+      Eigen::ArrayXXf::Constant(static_cast<int>(map.size().height/resolution_), 
+                                static_cast<int>(map.size().width/resolution_), 1.0); 
+    geo_maps_.push_back(geo_map);
+  }
+
+  for (size_t xi=0; xi<class_maps_[0].cols(); xi++) {
+    for (size_t yi=0; yi<class_maps_[0].rows(); yi++) {
+      int cls = flatten_lut_[map.at<cv::Vec3b>(std::max<int>(map.size().height-yi*resolution_-1, 0), 
+                                               std::min<int>(xi*resolution_, map.size().width-1))[0]]-1;
+      if (cls >= 0 && cls < class_maps_.size()) {
+        class_maps_[cls](yi, xi) = 0;
+      }
+    }
+  }
+  computeDists(class_maps_);
+
+  have_map_ = true;
 }
 
 void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes) {
