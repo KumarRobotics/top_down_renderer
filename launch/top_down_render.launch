@@ -2,6 +2,13 @@
 <launch>
   <arg name="simulation" default="False"/>
   <arg name="image_seg" default="False"/>
+  <arg name="bag" default=""/>
+
+  <group if="$(eval len(arg('bagfile')) > 0)">
+    <include file="$(find top_down_render)/launch/record.launch">
+      <arg name="bagpath" value="$(arg bagfile)"/>
+    </include>
+  </group>
 
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
     <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
