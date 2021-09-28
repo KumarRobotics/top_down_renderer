@@ -349,7 +349,9 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
     pose.header = pcl_conversions::fromPCL(cloud->header);
     pose.header.frame_id = "world";
 
-    scale_pub_.publish(scale);
+    std_msgs::Float32 scale_msg;
+    scale_msg.data = scale;
+    scale_pub_.publish(scale_msg);
 
     //pose
     pose.pose.pose.position.x = (ml_state[0] - map_center_.x)/scale;
