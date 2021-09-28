@@ -11,12 +11,14 @@ TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float re
   num_exclusive_classes_ = num_ex;
   have_map_ = false;
   flatten_lut_ = flatten_lut;
+  out_of_bounds_const_ = 5;
 }
 
 TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res) {
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
+  out_of_bounds_const_ = 5;
 
   if (loadCacheMetaData(path)) {
     loadCachedMaps();
@@ -248,6 +250,14 @@ void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
   ROS_INFO_STREAM("Computing distance maps...");
 
   auto start = std::chrono::high_resolution_clock::now();
+  //Compute all locations with no known class
+  Eigen::Array<uint8_t, Eigen::Dynamic, Eigen::Dynamic> class_mask = 
+      Eigen::Array<uint8_t, Eigen::Dynamic, Eigen::Dynamic>::Zero(classes[0].rows(), classes[0].cols()); 
+  for (int cls_id=0; cls_id<classes.size(); cls_id++) {
+    class_mask += classes[cls_id].cast<uint8_t>();
+  }
+  cv::Mat mask_mat(class_mask.cols(), class_mask.rows(), CV_8UC1, (void*)class_mask.data());
+
   for (int cls_id=0; cls_id<classes.size(); cls_id++) {
     //Copy class buffer
     Eigen::ArrayXXf class_buf = classes[cls_id];
@@ -263,8 +273,12 @@ void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
     dist_mat *= resolution_;
     cv::threshold(dist_mat, dist_mat, 50, 0, cv::THRESH_TRUNC);
 
+    cv::threshold(mask_mat, mask_mat, classes.size()-1, 255, cv::THRESH_BINARY);
+    dist_mat.setTo(out_of_bounds_const_, mask_mat); 
+
     ROS_INFO_STREAM("class " << cls_id << " complete");
   }
+
   auto end = std::chrono::high_resolution_clock::now();
   //ROS_INFO_STREAM("dist gen took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()/1000 << "ms");
 }
@@ -370,7 +384,7 @@ void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::
           pts_int(1, idx) >= 0 && pts_int(1, idx) < class_maps_[cls].cols()) {
         dists[cls](idx) = class_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = 100;
+        dists[cls](idx) = out_of_bounds_const_;
       }
     }
   }
@@ -390,7 +404,7 @@ void TopDownMap::getLocalGeoMap(Eigen::Vector2f center, float rot, float res, st
           pts_int(1, idx) >= 0 && pts_int(1, idx) < geo_maps_[cls].cols()) {
         dists[cls](idx) = geo_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = 100;
+        dists[cls](idx) = out_of_bounds_const_;
       }
     }
   }

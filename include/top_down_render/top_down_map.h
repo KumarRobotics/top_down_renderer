@@ -69,6 +69,7 @@ class TopDownMap {
     float resolution_; //pixels for svg per per pixel for rasterized map
     int num_classes_;
     int num_exclusive_classes_;
+    float out_of_bounds_const_;
     bool have_map_;
     Eigen::VectorXi flatten_lut_;
 

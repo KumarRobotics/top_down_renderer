@@ -31,12 +31,13 @@ class StateParticle {
     StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams &params);
     
     void propagate(Eigen::Vector2f &trans, float omega, bool scale_freeze=false);
-    State state();
+    State state() const;
     Eigen::Vector4f mlState();
     void setState(State s);
     void computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                        std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
-    float weight();
+    float weight() const;
+    float lastDist() const;
     void setScale(float scale);
     void updateSize();
   private:
@@ -45,6 +46,7 @@ class StateParticle {
     float width_;
     float height_;
     float weight_;
+    float last_dist_;
     TopDownMapPolar *map_;
     std::mt19937 *gen_;
 

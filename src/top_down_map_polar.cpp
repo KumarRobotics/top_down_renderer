@@ -45,7 +45,7 @@ void TopDownMapPolar::getLocalMap(Eigen::Vector2f center,
           pts_int(1, idx) >= 0 && pts_int(1, idx) < class_maps_[cls].cols()) {
         dists[cls](idx) = class_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = 100;
+        dists[cls](idx) = out_of_bounds_const_;
       }
     }
   }
@@ -68,7 +68,7 @@ void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center,
           pts_int(1, idx) >= 0 && pts_int(1, idx) < geo_maps_[cls].cols()) {
         dists[cls](idx) = geo_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = 100;
+        dists[cls](idx) = out_of_bounds_const_;
       }
     }
   }

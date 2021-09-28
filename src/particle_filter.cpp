@@ -82,6 +82,13 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   ROS_INFO_STREAM("particle weights: " << weights_.sum());
   weights_ = weights_/weights_.sum(); //Renormalize
 
+  //Regularize weights based on distance travelled
+  for (int i; i<particles_.size(); i++) {
+    float d = std::min<float>(particles_[i]->lastDist()*5, 1);
+    weights_[i] = d*weights_[i] + (1-d)/particles_.size();
+  }
+  weights_ = weights_/weights_.sum(); //Renormalize
+
   //Find the maximum likelihood particle
   Eigen::VectorXf::Index max_weight;
   weights_.maxCoeff(&max_weight);
@@ -298,8 +305,15 @@ void ParticleFilter::visualize(cv::Mat &img) {
     Eigen::Vector3f state = p->mlState().head<3>();
     cv::Point pt(state[0], 
                  img.size().height-state[1]);
-    cv::Point dir(cos(state[2])*5, -sin(state[2])*5);
-    cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(0,0,255), 2, CV_AA, 0, 0.3);
+    if (pt.x < 0 || pt.x > img.size().width || pt.y < 0 || pt.y > img.size().height) {
+      //pt out of bounds, show green circle on border
+      pt.x = std::clamp<float>(pt.x, 5, img.size().width-5);
+      pt.y = std::clamp<float>(pt.y, 5, img.size().height-5);
+      cv::circle(img, pt, 2, cv::Scalar(0,255,0), -1);
+    } else {
+      cv::Point dir(cos(state[2])*5, -sin(state[2])*5);
+      cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(0,0,255), 2, CV_AA, 0, 0.3);
+    }
   }
   //GMM
   gmm_lock_.lock();

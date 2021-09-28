@@ -234,17 +234,17 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
                                  std::vector<Eigen::ArrayXXf> &top_down_geo, float res,
                                  Eigen::Affine3f &motion_prior, std_msgs::Header &header) {
   auto start = std::chrono::high_resolution_clock::now();
-  filter_->update(top_down, top_down_geo, res);
-  auto stop = std::chrono::high_resolution_clock::now();
-  auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
-  ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
-
   //Project 3d prior to 2d
   Eigen::Vector2f motion_priort = motion_prior.translation().head<2>();
   Eigen::Vector3f proj_rot = motion_prior.rotation() * Eigen::Vector3f::UnitX();
   float motion_priora = std::atan2(proj_rot[1], proj_rot[0]);
   ROS_INFO_STREAM(motion_priort << ", " << motion_priora);
   filter_->propagate(motion_priort, motion_priora);
+
+  filter_->update(top_down, top_down_geo, res);
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
+  ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
 
   cv::Mat background_copy = background_img_.clone();
   filter_->visualize(background_copy);

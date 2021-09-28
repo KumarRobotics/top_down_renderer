@@ -3,6 +3,7 @@
 StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams &params) {
   params_ = params;
   gen_ = gen;
+  last_dist_ = 0;
   std::uniform_real_distribution<float> uniform_dist(0.,1.);
   std::normal_distribution<float> normal_dist(0., 1.);
 
@@ -53,6 +54,7 @@ void StateParticle::updateSize() {
 
 void StateParticle::propagate(Eigen::Vector2f &trans, float omega, bool scale_freeze) {
   Eigen::Vector2f trans_global = Eigen::Rotation2D<float>(state_.theta) * trans;
+  Eigen::Vector2f last_pos(state_.dx_m, state_.dy_m);
   state_.dx_m += trans_global[0];
   state_.dy_m += trans_global[1];
 
@@ -70,6 +72,9 @@ void StateParticle::propagate(Eigen::Vector2f &trans, float omega, bool scale_fr
     std::normal_distribution<float> scale_dist{1, std::min(2./dist, 0.02)};
     state_.scale *= scale_dist(*gen_);
   }
+
+  Eigen::Vector2f motion = last_pos - Eigen::Vector2f(state_.dx_m, state_.dy_m);
+  last_dist_ = motion.norm();
 }
 
 void StateParticle::setState(State s) {
@@ -86,7 +91,7 @@ void StateParticle::setScale(float scale) {
   state_.scale = scale;
 }
 
-State StateParticle::state() {
+State StateParticle::state() const {
   return state_;
 }
 
@@ -96,8 +101,12 @@ Eigen::Vector4f StateParticle::mlState() {
                          state_.theta, state_.scale);
 }
 
-float StateParticle::weight() {
+float StateParticle::weight() const {
   return weight_;
+}
+
+float StateParticle::lastDist() const {
+  return last_dist_;
 }
 
 float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
@@ -148,8 +157,13 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
 
   Eigen::Vector2f center(state_.dx_m*state_.scale + state_.init_x_px, 
                          state_.dy_m*state_.scale + state_.init_y_px);
-  if (center[0] < 0 || center[1] < 0 || center[0] > width_ || center[1] > height_ ||
-      state_.scale < std::pow(10, -0.1) || state_.scale > std::pow(10, 1)) {
+  //Don't force on map
+  //if (center[0] < 0 || center[1] < 0 || center[0] > width_ || center[1] > height_ ||
+  //    state_.scale < std::pow(10, -0.1) || state_.scale > std::pow(10, 1)) {
+  //  weight_ = 0;
+  //  return;
+  //}
+  if (state_.scale < std::pow(10, -0.1) || state_.scale > std::pow(10, 1)) {
     weight_ = 0;
     return;
   }
