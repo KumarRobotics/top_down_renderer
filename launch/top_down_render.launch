@@ -2,7 +2,7 @@
 <launch>
   <arg name="simulation" default="False"/>
   <arg name="image_seg" default="False"/>
-  <arg name="bag" default=""/>
+  <arg name="bagfile" default=""/>
 
   <group if="$(eval len(arg('bagfile')) > 0)">
     <include file="$(find top_down_render)/launch/record.launch">
@@ -16,7 +16,7 @@
     <param name="raster_res" value="1"/>
     <param name="particle_count" value="1000"/>
 
-    <rosparam command="load" subst_value="True" file="$(find top_down_render)/config/live_map.yaml"/>
+    <rosparam command="load" subst_value="True" file="$(find top_down_render)/config/pennovation2.yaml"/>
 
     <param name="use_motion_prior" value="True"/>
     <param name="filter_pos_cov" value="0.15"/>

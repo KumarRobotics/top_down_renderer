@@ -20,9 +20,10 @@ void TopDownRender::initialize() {
                           geometry_msgs::PoseStamped::ConstPtr()));
   }
 
-  bool live_map;
+  bool live_map = false;
   nh_.param<bool>("live_map", live_map, false);
   if (live_map) {
+    ROS_INFO_STREAM("Using live map");
     map_image_sub_ = new message_filters::Subscriber<sensor_msgs::Image>(nh_, "map_image", 50);
     map_image_viz_sub_ = new message_filters::Subscriber<sensor_msgs::Image>(nh_, "map_image_viz", 50);
     map_loc_sub_ = new message_filters::Subscriber<geometry_msgs::PointStamped>(nh_, "map_loc", 50);
@@ -120,6 +121,7 @@ void TopDownRender::initialize() {
   if (live_map) {
     map_ = new TopDownMapPolar(color_lut_, 6, 6, raster_res, flatten_lut_);
   } else {
+    ROS_INFO_STREAM("Loading map from file");
     std::string map_path;
     nh_.getParam("map_path", map_path);
     background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
@@ -266,7 +268,10 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
 void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud,
                                const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
   ROS_INFO_STREAM("pc cb");
-  if (!map_->haveMap()) return;  
+  if (!map_->haveMap()) {
+    ROS_WARN_STREAM("No map received yet");
+    return;  
+  }
 
   auto start = std::chrono::high_resolution_clock::now();
 

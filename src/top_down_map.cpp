@@ -94,8 +94,8 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
     ROS_INFO_STREAM("Rasterization complete");
 
     saveCachedMaps(path);
-    have_map_ = true;
   }
+  have_map_ = true;
 }
 
 void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center) {
