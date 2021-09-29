@@ -182,13 +182,13 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
   
   auto mid = std::chrono::high_resolution_clock::now();
 
-  float best_cost = 1e10;
+  float best_cost = std::numeric_limits<float>::max();
   float best_theta = 0;
   if (!state_.have_init) {
     //initialize
     for (float t=0; t<2*M_PI; t+=2*M_PI/40) {
       float cost = getCostForRot(top_down_scan, top_down_geo, classes, geo_cls, t);
-      if (best_cost > cost) {
+      if (cost < best_cost) {
         best_cost = cost; 
         best_theta = t;
       } 

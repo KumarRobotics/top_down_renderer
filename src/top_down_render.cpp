@@ -77,7 +77,6 @@ void TopDownRender::initialize() {
   int svg_origin_x, svg_origin_y;
   nh_.param<int>("svg_origin_x", svg_origin_x, 0);
   nh_.param<int>("svg_origin_y", svg_origin_y, 0);
-  map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
 
   //Get filter parameters
   FilterParams filter_params;
@@ -135,6 +134,7 @@ void TopDownRender::initialize() {
       map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, raster_res);
     }
   }
+  map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
   filter_ = new ParticleFilter(particle_count, map_, filter_params);
   renderer_ = new ScanRendererPolar(flatten_lut_);

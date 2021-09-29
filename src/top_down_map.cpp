@@ -11,7 +11,7 @@ TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float re
   num_exclusive_classes_ = num_ex;
   have_map_ = false;
   flatten_lut_ = flatten_lut;
-  out_of_bounds_const_ = 5;
+  out_of_bounds_const_ = 1;
 }
 
 TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res) {
