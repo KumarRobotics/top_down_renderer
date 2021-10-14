@@ -4,6 +4,9 @@ project(top_down_render)
 ## Compile as C++17
 set(CMAKE_CXX_STANDARD 17)
 
+## Export compile_commands.json for semantic autocompletion
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages

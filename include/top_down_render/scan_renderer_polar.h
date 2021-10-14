@@ -10,13 +10,14 @@
 #include <pcl/visualization/cloud_viewer.h>
 
 #include "top_down_render/scan_renderer.h"
+#include "top_down_render/point_os1.h"
 
 class ScanRendererPolar : public ScanRenderer {
   public:
     ScanRendererPolar(const Eigen::VectorXi &flatten_lut);
     void renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
                                float res, float ang_res, std::vector<Eigen::ArrayXXf> &imgs);
-    void renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+    void renderGeometricTopDown(const pcl::PointCloud<PointOS1>::ConstPtr& cloud, 
                                 float res, float ang_res, std::vector<Eigen::ArrayXXf> &imgs);
 };
 

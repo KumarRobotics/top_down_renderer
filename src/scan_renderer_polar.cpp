@@ -3,7 +3,7 @@
 ScanRendererPolar::ScanRendererPolar(const Eigen::VectorXi &flatten_lut) : ScanRenderer(flatten_lut) {
 }
 
-void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointOS1>::ConstPtr& cloud, 
                                                float res, float ang_res, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 2) return;
   Eigen::Vector2i img_size(imgs[0].rows(), imgs[0].cols());
@@ -20,7 +20,7 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<pcl::PointX
 
     //Scan up a vertical scan line
     for (size_t idy=0; idy<cloud->height; idy++) {
-      pcl::PointXYZRGB pcl_pt = cloud->at(idx, idy);
+      PointOS1 pcl_pt = cloud->at(idx, idy);
       pt << pcl_pt.x, pcl_pt.y, pcl_pt.z;
       if (pt[0] == 0 && pt[1] == 0) continue;
       //Convert to polar

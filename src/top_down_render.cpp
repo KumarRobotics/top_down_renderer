@@ -9,13 +9,13 @@ void TopDownRender::initialize() {
   bool use_motion_prior;
   nh_.param<bool>("use_motion_prior", use_motion_prior, false);
   if (use_motion_prior) {
-    pc_sync_sub_ = new message_filters::Subscriber<pcl::PointCloud<pcl::PointXYZRGB>>(nh_, "pc", 50);
+    pc_sync_sub_ = new message_filters::Subscriber<pcl::PointCloud<PointOS1>>(nh_, "pc", 50);
     motion_prior_sync_sub_ = new message_filters::Subscriber<geometry_msgs::PoseStamped>(nh_, "motion_prior", 50);
-    scan_sync_sub_ = new message_filters::TimeSynchronizer<pcl::PointCloud<pcl::PointXYZRGB>, geometry_msgs::PoseStamped>(
+    scan_sync_sub_ = new message_filters::TimeSynchronizer<pcl::PointCloud<PointOS1>, geometry_msgs::PoseStamped>(
                       *pc_sync_sub_, *motion_prior_sync_sub_, 50);
     scan_sync_sub_->registerCallback(&TopDownRender::pcCallback, this);
   } else {
-    pc_sub_ = nh_.subscribe<pcl::PointCloud<pcl::PointXYZRGB>>("pc", 10, 
+    pc_sub_ = nh_.subscribe<pcl::PointCloud<PointOS1>>("pc", 10, 
                 std::bind(&TopDownRender::pcCallback, this, std::placeholders::_1, 
                           geometry_msgs::PoseStamped::ConstPtr()));
   }
@@ -265,7 +265,7 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   map_pub_.publish(img_msg);
 }
 
-void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud,
+void TopDownRender::pcCallback(const pcl::PointCloud<PointOS1>::ConstPtr& cloud,
                                const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
   ROS_INFO_STREAM("pc cb");
   if (!map_->haveMap()) {
@@ -296,7 +296,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr
   }
 
   ROS_INFO_STREAM("Starting render");
-  renderer_->renderSemanticTopDown(cloud, current_res_, 2*M_PI/100, top_down);
+  //renderer_->renderSemanticTopDown(cloud, current_res_, 2*M_PI/100, top_down);
   renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
 
   //convert pointcloud header to ROS header

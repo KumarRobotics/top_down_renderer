@@ -11,7 +11,7 @@
   </group>
 
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
-    <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
+    <remap from="~/pc" to="/os1_cloud_node/points"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <param name="raster_res" value="1"/>
     <param name="particle_count" value="1000"/>
@@ -37,6 +37,7 @@
     <include file="$(find depth_atlas)/launch/mapper.launch"/>
   </group>
 
+  <!--
   <group if="$(eval arg('image_seg'))">
     <include file="$(find image_folder_sync)/launch/image_folder_sync.launch"/>
   </group>
@@ -44,6 +45,7 @@
   <group if="$(eval not arg('simulation') and not arg('image_seg'))">
     <include file="$(find inference)/launch/inference.launch"/>
   </group>
+  -->
 
   <group if="$(eval arg('simulation'))">
     <node pkg="tf2_ros" type="static_transform_publisher" name="gt"
