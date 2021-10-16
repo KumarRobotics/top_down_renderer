@@ -143,7 +143,6 @@ void TopDownRender::initialize() {
   tf2_broadcaster_ = new tf2_ros::TransformBroadcaster(); 
 
   ROS_INFO_STREAM("Setup complete");
-
 }
 
 void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {

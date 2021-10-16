@@ -69,7 +69,7 @@ void StateParticle::propagate(Eigen::Vector2f &trans, float omega, bool scale_fr
 
   if (!scale_freeze) {
     float dist = std::sqrt(std::pow(state_.dx_m, 2) + std::pow(state_.dy_m, 2));
-    std::normal_distribution<float> scale_dist{1, std::min(2./dist, 0.02)};
+    std::normal_distribution<float> scale_dist{1, static_cast<float>(std::min(2./dist, 0.02))};
     state_.scale *= scale_dist(*gen_);
   }
 
@@ -123,6 +123,7 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
 
   float cost = 0;
   float normalization = 0;
+  /*
   for (int i=0; i<map_->numClasses(); i++) {
     //if (i == 4) continue; //ignore trees
     //if (i == 3) continue; //ignore buildings
@@ -131,14 +132,13 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
     cost += (top_down_scan[i].bottomRows(num_bins-rot_shift) * classes[i].topRows(num_bins-rot_shift)).sum()*0.01*class_weights_[i];
     normalization += top_down_scan[i].sum();
   }
-  /*
+  */
   for (int i=0; i<2; i++) {
     //geometric cost
-    cost += (top_down_geo[i].topRows(rot_shift) * geo_cls[i].bottomRows(rot_shift)).sum()*0.001;
-    cost += (top_down_geo[i].bottomRows(num_bins-rot_shift) * geo_cls[i].topRows(num_bins-rot_shift)).sum()*0.001;
+    cost += (top_down_geo[i].topRows(rot_shift) * geo_cls[i].bottomRows(rot_shift)).sum()*0.01;
+    cost += (top_down_geo[i].bottomRows(num_bins-rot_shift) * geo_cls[i].topRows(num_bins-rot_shift)).sum()*0.01;
     normalization += top_down_geo[i].sum();
   }
-  */
 
   if (isnan(cost/normalization)) {
     ROS_WARN("NAN");

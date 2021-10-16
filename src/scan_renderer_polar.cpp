@@ -19,6 +19,7 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointOS1>::
     int last_r_ind = 0;
 
     //Scan up a vertical scan line
+    ROS_INFO_STREAM("=================");
     for (size_t idy=0; idy<cloud->height; idy++) {
       PointOS1 pcl_pt = cloud->at(idx, idy);
       pt << pcl_pt.x, pcl_pt.y, pcl_pt.z;
@@ -26,6 +27,7 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointOS1>::
       //Convert to polar
       float theta = atan2(pt[0], pt[1]);
       float r = sqrt(pt[0]*pt[0] + pt[1]*pt[1]);
+      ROS_INFO_STREAM(theta << ", " << r);
 
       int theta_ind = std::round(theta/ang_res)+img_size[0]/2;
       int r_ind = std::round(r/res);
