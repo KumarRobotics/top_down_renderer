@@ -12,30 +12,55 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointOS1>::
     imgs[i].setZero();
   }
 
+  // Bin for each row in polar image.  Vector is xyzr 
+  // Keep r to be able to rapidly sort later
+  std::vector<std::vector<Eigen::Vector4f, Eigen::aligned_allocator<Eigen::Vector4f>>> ang_bins;
+  ang_bins.reserve(img_size[0]);
+  for (size_t i=0; i<img_size[0]; i++) {
+    ang_bins.push_back(std::vector<Eigen::Vector4f, Eigen::aligned_allocator<Eigen::Vector4f>>());
+  }
+
+  // Populate the bins
+  PointOS1 pcl_pt;
+  float theta, r;
+  int theta_ind, r_ind;
   for (size_t idx=0; idx<cloud->width; idx++) {
-    Eigen::Vector3f last_pt(0,0,0); 
-    Eigen::Vector3f pt(0,0,0); 
-    bool last_high_grad = false;
-    int last_r_ind = 0;
-
-    //Scan up a vertical scan line
-    ROS_INFO_STREAM("=================");
     for (size_t idy=0; idy<cloud->height; idy++) {
-      PointOS1 pcl_pt = cloud->at(idx, idy);
-      pt << pcl_pt.x, pcl_pt.y, pcl_pt.z;
-      if (pt[0] == 0 && pt[1] == 0) continue;
-      //Convert to polar
-      float theta = atan2(pt[0], pt[1]);
-      float r = sqrt(pt[0]*pt[0] + pt[1]*pt[1]);
-      ROS_INFO_STREAM(theta << ", " << r);
+      pcl_pt = cloud->at(idx, idy);
+      if (pcl_pt.x == 0 && pcl_pt.y == 0) continue;
 
-      int theta_ind = std::round(theta/ang_res)+img_size[0]/2;
-      int r_ind = std::round(r/res);
+      theta = atan2(pcl_pt.x, pcl_pt.y);
+      r = sqrt(pcl_pt.x*pcl_pt.x + pcl_pt.y*pcl_pt.y);
 
-      float dist = (pt-last_pt).head<2>().norm(); //dist in xy plane
-      float slope = abs(pt(2)-last_pt(2))/dist;
+      // clamp to provide safely guarantees
+      theta_ind = std::clamp<float>(
+        std::round(theta/ang_res)+img_size[0]/2, 0, img_size[0]-1);
+      
+      ang_bins[theta_ind].push_back(Eigen::Vector4f(pcl_pt.x, pcl_pt.y, pcl_pt.z, r));
+    }
+  }
+
+  float dist, slope;
+  bool last_high_grad;
+  int last_r_ind;
+  theta_ind = 0;
+  for (auto& bin : ang_bins) {
+    // Sort each bin based on r
+    std::sort(bin.begin(), bin.end(), [](Eigen::Vector4f& a, Eigen::Vector4f& b) {
+      return a[3] > b[3];
+    });
+
+    // Loop through bin
+    Eigen::Vector3f last_pt(0,0,0); 
+    last_high_grad = false;
+    last_r_ind = 0;
+    for (const auto& pt : bin) {
+      dist = (pt.head<3>()-last_pt).head<2>().norm(); //dist in xy plane
+      slope = abs(pt[2]-last_pt[2])/dist;
+      r_ind = std::round(pt[3]/res);
+
       if (slope > 1) {
-        if (theta_ind >= 0 && theta_ind < img_size[0] && r_ind >= 0 && r_ind < img_size[1]) {
+        if (r_ind >= 0 && r_ind < img_size[1]) {
           imgs[1](theta_ind, r_ind) += 1;
         }
         last_high_grad = true;
@@ -48,9 +73,10 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointOS1>::
       } else {
         last_high_grad = false;
       }
-      last_pt = pt;
+      last_pt = pt.head<3>();
       last_r_ind = r_ind;
     }
+    theta_ind++;
   }
 }
 
