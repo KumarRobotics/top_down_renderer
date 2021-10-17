@@ -83,11 +83,12 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
     }
 
     for (size_t i=0; i<2; i++) {
-      Eigen::ArrayXXf geo_map(class_maps_[0].cols(), 
-                              class_maps_[0].rows()); //0 inside obstacles, 1 elsewhere
+      Eigen::ArrayXXf geo_map(class_maps_[0].rows(), 
+                              class_maps_[0].cols()); //0 inside obstacles, 1 elsewhere
       geo_maps_.push_back(geo_map);
     }
     getGeoRasterMap(geo_maps_);
+
     //Do this after so we can reuse maps
     computeDists(class_maps_);
     computeDists(geo_maps_);
