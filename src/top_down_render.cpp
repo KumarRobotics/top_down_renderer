@@ -258,8 +258,12 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   cv::arrowedLine(background_copy, map_center_+img_pos-img_rot, map_center_+img_pos+img_rot, 
                   cv::Scalar(0,255,0), 2, CV_AA, 0, 0.3);
 
+  cv::Mat background_copy_small;
+  cv::resize(background_copy, background_copy_small,
+      cv::Size(static_cast<int>(background_copy.cols*0.2), static_cast<int>(background_copy.rows*0.2)));
+
   //Publish visualization
-  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_copy).toImageMsg();
+  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_copy_small).toImageMsg();
   img_msg->header = header;
   map_pub_.publish(img_msg);
 }
