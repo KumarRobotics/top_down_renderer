@@ -426,17 +426,19 @@ void TopDownRender::liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
                                     const sensor_msgs::Image::ConstPtr &map_viz,
                                     const geometry_msgs::PointStamped::ConstPtr &map_loc) {
   ROS_INFO_STREAM("Got new map");
-  //Convert to cv
-  cv_bridge::CvImageConstPtr map_ptr = cv_bridge::toCvShare(map, sensor_msgs::image_encodings::BGR8);
-  Eigen::Vector2i map_loc_eig(map_loc->point.y, -map_loc->point.x);
+  //Convert to cv and rotate
+  cv::Mat map_img;
+  cv::rotate(cv_bridge::toCvShare(map, sensor_msgs::image_encodings::BGR8)->image, map_img,
+             cv::ROTATE_90_CLOCKWISE);
+  cv::rotate(cv_bridge::toCvShare(map_viz, sensor_msgs::image_encodings::BGR8)->image,
+             background_img_, cv::ROTATE_90_CLOCKWISE);
+
+  Eigen::Vector2i map_loc_eig(-map_loc->point.x, -map_loc->point.y);
   map_loc_eig *= filter_->scale();
-  map_loc_eig += Eigen::Vector2i(map->width/2, map->height/2);
+  map_loc_eig += Eigen::Vector2i(map_img.size().width/2, map_img.size().height/2);
 
-  map_center_ = cv::Point(map_loc_eig[0], map->height - map_loc_eig[1]);
-  filter_->updateMap(map_ptr->image, map_loc_eig);
-
-  //Use colored version for viz
-  background_img_ = cv_bridge::toCvCopy(map_viz, sensor_msgs::image_encodings::BGR8)->image;
+  map_center_ = cv::Point(map_loc_eig[0], map_img.size().height - map_loc_eig[1]);
+  filter_->updateMap(map_img, map_loc_eig);
 }
 
 void TopDownRender::gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose) {

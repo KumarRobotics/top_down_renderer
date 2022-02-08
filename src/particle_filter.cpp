@@ -263,8 +263,6 @@ void ParticleFilter::updateMap(const cv::Mat &map, const Eigen::Vector2i& map_ce
   map_->updateMap(map, map_center);
 
   ROS_INFO_STREAM("updating particles");
-  ROS_INFO_STREAM(map_center);
-  ROS_INFO_STREAM(last_map_center_);
   Eigen::Vector2i map_center_delta = map_center - last_map_center_;
   particle_lock_.lock();
   for (auto& particle : particles_) {
