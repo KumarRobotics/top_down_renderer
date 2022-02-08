@@ -107,6 +107,9 @@ void TopDownRender::initialize() {
   int particle_count;
   nh_.param<int>("particle_count", particle_count, 20000);
 
+  float out_of_bounds_const;
+  nh_.param<float>("out_of_bounds_const", out_of_bounds_const, 5);
+
 
   //DEBUG FOR VISUALIZATION
   //ros::Rate rate(1);
@@ -126,7 +129,7 @@ void TopDownRender::initialize() {
   //END DEBUG
 
   if (live_map) {
-    map_ = new TopDownMapPolar(color_lut_, 6, 6, raster_res, flatten_lut_);
+    map_ = new TopDownMapPolar(color_lut_, 6, 6, raster_res, flatten_lut_, out_of_bounds_const);
   } else {
     ROS_INFO_STREAM("Loading map from file");
     std::string map_path;

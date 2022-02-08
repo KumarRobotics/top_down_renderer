@@ -5,21 +5,21 @@
 #define NANOSVG_IMPLEMENTATION
 #include "top_down_render/nanosvg.h"
 
-TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut) {
+TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut, float oobc) {
   // Live map case
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
   have_map_ = false;
   flatten_lut_ = flatten_lut;
-  out_of_bounds_const_ = 5;
+  out_of_bounds_const_ = oobc;
 }
 
-TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res) {
+TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res, float oobc) {
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
-  out_of_bounds_const_ = 5;
+  out_of_bounds_const_ = oobc;
 
   if (loadCacheMetaData(path)) {
     loadCachedMaps();
@@ -119,18 +119,26 @@ void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center
     geo_maps_.push_back(geo_map);
   }
 
+  bool have_road_cells = false;
   for (size_t xi=0; xi<class_maps_[0].cols(); xi++) {
     for (size_t yi=0; yi<class_maps_[0].rows(); yi++) {
       int cls = flatten_lut_[map.at<cv::Vec3b>(std::max<int>(map.size().height-yi*resolution_-1, 0), 
                                                std::min<int>(xi*resolution_, map.size().width-1))[0]]-1;
       if (cls >= 0 && cls < class_maps_.size()) {
         class_maps_[cls](yi, xi) = 0;
+        if (cls == 1) {
+          have_road_cells = true;
+        }
       }
     }
   }
   computeDists(class_maps_);
 
-  have_map_ = true;
+  if (have_road_cells) {
+    have_map_ = true;
+  } else {
+    ROS_WARN("Received map with no road");
+  }
 }
 
 void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes) {

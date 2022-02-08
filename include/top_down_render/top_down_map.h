@@ -50,8 +50,10 @@ void read_binary(std::string &filename, Matrix& matrix){
 
 class TopDownMap {
   public:
-    TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut);
-    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res);
+    TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, 
+               const Eigen::VectorXi &flatten_lut, float oobc=5);
+    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res, 
+               float oobc=5);
 
     void updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center);
     void getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes);

@@ -17,12 +17,12 @@
     <remap from="~/map_image_viz" to="/asoom/map_sem_img_viz"/>
     <remap from="~/map_loc" to="/asoom/map_sem_img_center"/>
     <param name="raster_res" value="1"/>
-    <param name="particle_count" value="1000"/>
+    <param name="particle_count" value="300"/>
 
     <rosparam command="load" subst_value="True" file="$(find top_down_render)/config/live_map.yaml"/>
 
     <param name="use_motion_prior" value="True"/>
-    <param name="filter_pos_cov" value="0.15"/>
+    <param name="filter_pos_cov" value="0.05"/>
     <param name="filter_theta_cov" value="0.004"/>
     <param name="filter_regularization" value="0.7"/>
 
