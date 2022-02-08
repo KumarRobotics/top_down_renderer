@@ -3,7 +3,7 @@
 ScanRendererPolar::ScanRendererPolar(const Eigen::VectorXi &flatten_lut) : ScanRenderer(flatten_lut) {
 }
 
-void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointOS1>::ConstPtr& cloud, 
+void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointType>::ConstPtr& cloud, 
                                                float res, float ang_res, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 2) return;
   Eigen::Vector2i img_size(imgs[0].rows(), imgs[0].cols());
@@ -21,7 +21,7 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointOS1>::
   }
 
   // Populate the bins
-  PointOS1 pcl_pt;
+  PointType pcl_pt;
   float theta, r;
   int theta_ind, r_ind;
   for (size_t idx=0; idx<cloud->width; idx++) {

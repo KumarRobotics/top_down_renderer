@@ -33,7 +33,7 @@ class StateParticle {
     void propagate(Eigen::Vector2f &trans, float omega, bool scale_freeze=false);
     State state() const;
     Eigen::Vector4f mlState();
-    void setState(State s);
+    void setState(const State& s);
     void computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                        std::vector<Eigen::ArrayXXf> &top_down_geo, float res);
     float weight() const;

@@ -46,8 +46,8 @@ void ParticleFilter::initializeParticles() {
   num_particles_ = particles_.size();
   weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(num_particles_)/num_particles_;
 
-  best_rel_pos_ = Eigen::Vector2f(0,0);
-  active_loc_ = new ActiveLocalizer(map_);
+  //best_rel_pos_ = Eigen::Vector2f(0,0);
+  //active_loc_ = new ActiveLocalizer(map_);
 
   //Initialize Gaussians
   computeGMM();
@@ -57,7 +57,7 @@ void ParticleFilter::initializeParticles() {
 
 void ParticleFilter::propagate(Eigen::Vector2f &trans, float omega) {
   particle_lock_.lock();
-  for (auto p : particles_) {
+  for (auto& p : particles_) {
     p->propagate(trans, omega, scale_frozen_);
   }
   particle_lock_.unlock();
@@ -98,14 +98,14 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
 
   int last_num_particles = num_particles_;
   num_particles_ = 0;
-  for (auto cov : covs_) {
+  for (const auto& cov : covs_) {
     Eigen::Vector2cf eig = cov.block<2,2>(0,0).eigenvalues(); //complex vector
     num_particles_ += static_cast<int>(sqrt(eig[0].real())*sqrt(eig[1].real())); //Approximation of area of cov ellipse
   }
   num_particles_ = std::min(std::max(num_particles_, 3*last_num_particles/4+10), max_num_particles_); //bounds
   ROS_INFO_STREAM(num_particles_ << " particles");
 
-  //resize num_particles_
+  //resize new_particles_
   if (num_particles_ < new_particles_.size()) {
     new_particles_.resize(num_particles_);
   } else {
@@ -137,7 +137,7 @@ void ParticleFilter::meanLikelihood(Eigen::Vector4f &mean_state) {
   mean_state = Eigen::Vector4f::Zero();
   float cos_sum = 0;
   float sin_sum = 0;
-  for (auto particle : particles_) {
+  for (const auto& particle : particles_) {
     Eigen::Vector4f state = particle->mlState();
     mean_state += state;
     cos_sum += cos(state[2]);
@@ -152,7 +152,7 @@ void ParticleFilter::computeMeanCov(Eigen::Matrix4f &cov) {
   Eigen::Vector4f mean_likelihood_state;
   meanLikelihood(mean_likelihood_state);
 
-  for (auto particle : particles_) {
+  for (const auto& particle : particles_) {
     Eigen::Vector4f state = particle->mlState() - mean_likelihood_state;
     while (state[2] > M_PI) state[2] -= 2*M_PI;
     while (state[2] < -M_PI) state[2] += 2*M_PI;
@@ -168,7 +168,7 @@ void ParticleFilter::maxLikelihood(Eigen::Vector4f &state) {
 void ParticleFilter::computeCov(Eigen::Matrix4f &cov) {
   cov.setZero();
   Eigen::Vector4f max_likelihood_state = max_likelihood_particle_->mlState();
-  for (auto particle : particles_) {
+  for (const auto& particle : particles_) {
     Eigen::Vector4f state = particle->mlState() - max_likelihood_state;
     while (state[2] > M_PI) state[2] -= 2*M_PI;
     while (state[2] < -M_PI) state[2] += 2*M_PI;
@@ -254,17 +254,19 @@ void ParticleFilter::computeGMM() {
            0, 0, 1;
     covs_.push_back(cov);
   }
-  best_rel_pos_ = active_loc_->getBestRelPos(means_);
+  //best_rel_pos_ = active_loc_->getBestRelPos(means_);
   gmm_lock_.unlock();
 }
 
 void ParticleFilter::updateMap(const cv::Mat &map, const Eigen::Vector2i& map_center) {
   ROS_INFO_STREAM("updating map");
-  particle_lock_.lock();
   map_->updateMap(map, map_center);
 
   ROS_INFO_STREAM("updating particles");
+  ROS_INFO_STREAM(map_center);
+  ROS_INFO_STREAM(last_map_center_);
   Eigen::Vector2i map_center_delta = map_center - last_map_center_;
+  particle_lock_.lock();
   for (auto& particle : particles_) {
     State s = particle->state();
     s.init_x_px += map_center_delta[0];
@@ -293,6 +295,9 @@ void ParticleFilter::freezeScale() {
 }
 
 float ParticleFilter::scale() const {
+  if (params_.fixed_scale > 0) {
+    return params_.fixed_scale;
+  }
   if (scale_frozen_) {
     return particles_[0]->state().scale;
   }
@@ -301,7 +306,7 @@ float ParticleFilter::scale() const {
 
 void ParticleFilter::visualize(cv::Mat &img) {
   //Particle dist
-  for (auto p : particles_) {
+  for (const auto& p : particles_) {
     Eigen::Vector3f state = p->mlState().head<3>();
     cv::Point pt(state[0], 
                  img.size().height-state[1]);

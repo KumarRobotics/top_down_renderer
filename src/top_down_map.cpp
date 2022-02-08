@@ -6,12 +6,13 @@
 #include "top_down_render/nanosvg.h"
 
 TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut) {
+  // Live map case
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
   have_map_ = false;
   flatten_lut_ = flatten_lut;
-  out_of_bounds_const_ = 1;
+  out_of_bounds_const_ = 5;
 }
 
 TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res) {

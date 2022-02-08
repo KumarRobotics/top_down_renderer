@@ -39,9 +39,9 @@ class TopDownRender {
     image_transport::ImageTransport *it_;
     tf2_ros::TransformBroadcaster *tf2_broadcaster_;
     ros::Subscriber pc_sub_;
-    message_filters::Subscriber<pcl::PointCloud<PointOS1>> *pc_sync_sub_;
+    message_filters::Subscriber<pcl::PointCloud<PointType>> *pc_sync_sub_;
     message_filters::Subscriber<geometry_msgs::PoseStamped> *motion_prior_sync_sub_;
-    message_filters::TimeSynchronizer<pcl::PointCloud<PointOS1>, geometry_msgs::PoseStamped> *scan_sync_sub_;
+    message_filters::TimeSynchronizer<pcl::PointCloud<PointType>, geometry_msgs::PoseStamped> *scan_sync_sub_;
 
     message_filters::Subscriber<sensor_msgs::Image> *map_image_sub_;
     message_filters::Subscriber<sensor_msgs::Image> *map_image_viz_sub_;
@@ -66,6 +66,8 @@ class TopDownRender {
     ParticleFilter *filter_;
     ScanRendererPolar *renderer_;
 
+    float map_pub_scale_ = 1;
+
     float current_res_ = 4; //m/px range
     bool is_converged_ = false;
 
@@ -77,7 +79,7 @@ class TopDownRender {
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
                       std::vector<Eigen::ArrayXXf> &top_down_geo, float res, 
                       Eigen::Affine3f &motion_prior, std_msgs::Header &header);
-    void pcCallback(const pcl::PointCloud<PointOS1>::ConstPtr&, 
+    void pcCallback(const pcl::PointCloud<PointType>::ConstPtr&, 
                     const geometry_msgs::PoseStamped::ConstPtr &motion_prior);
     void liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
                          const sensor_msgs::Image::ConstPtr &map_viz,

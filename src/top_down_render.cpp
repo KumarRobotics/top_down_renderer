@@ -9,13 +9,13 @@ void TopDownRender::initialize() {
   bool use_motion_prior;
   nh_.param<bool>("use_motion_prior", use_motion_prior, false);
   if (use_motion_prior) {
-    pc_sync_sub_ = new message_filters::Subscriber<pcl::PointCloud<PointOS1>>(nh_, "pc", 50);
+    pc_sync_sub_ = new message_filters::Subscriber<pcl::PointCloud<PointType>>(nh_, "pc", 50);
     motion_prior_sync_sub_ = new message_filters::Subscriber<geometry_msgs::PoseStamped>(nh_, "motion_prior", 50);
-    scan_sync_sub_ = new message_filters::TimeSynchronizer<pcl::PointCloud<PointOS1>, geometry_msgs::PoseStamped>(
+    scan_sync_sub_ = new message_filters::TimeSynchronizer<pcl::PointCloud<PointType>, geometry_msgs::PoseStamped>(
                       *pc_sync_sub_, *motion_prior_sync_sub_, 50);
     scan_sync_sub_->registerCallback(&TopDownRender::pcCallback, this);
   } else {
-    pc_sub_ = nh_.subscribe<pcl::PointCloud<PointOS1>>("pc", 10, 
+    pc_sub_ = nh_.subscribe<pcl::PointCloud<PointType>>("pc", 10, 
                 std::bind(&TopDownRender::pcCallback, this, std::placeholders::_1, 
                           geometry_msgs::PoseStamped::ConstPtr()));
   }
@@ -54,6 +54,7 @@ void TopDownRender::initialize() {
 
   //Handle inputs
   flatten_lut_ = Eigen::VectorXi::Zero(256);
+  /*
   flatten_lut_[100] = 2; //road
   flatten_lut_[101] = 3; //dirt
   flatten_lut_[102] = 1; //grass
@@ -65,6 +66,13 @@ void TopDownRender::initialize() {
   flatten_lut_[13] = 2;  //car
   flatten_lut_[14] = 2;  //truck
   flatten_lut_[15] = 2;  //bus
+  */
+  flatten_lut_[0] = 2;   //road
+  flatten_lut_[1] = 5;   //veg
+  flatten_lut_[2] = 4;   //building
+  flatten_lut_[3] = 1;   //terrain
+  flatten_lut_[4] = 2;   //car
+
 
   float svg_res = -1;
   float raster_res = 1;
@@ -123,9 +131,16 @@ void TopDownRender::initialize() {
     ROS_INFO_STREAM("Loading map from file");
     std::string map_path;
     nh_.getParam("map_path", map_path);
+    nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
     background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
+
+    cv::Mat background_copy_small;
+    cv::resize(background_img_, background_copy_small,
+        cv::Size(static_cast<int>(background_img_.cols*map_pub_scale_), 
+                 static_cast<int>(background_img_.rows*map_pub_scale_)));
     //Publish the map image
-    sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_img_).toImageMsg();
+    sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), 
+        "bgr8", background_copy_small).toImageMsg();
     map_pub_.publish(img_msg);
 
     if (use_raster) {
@@ -260,7 +275,8 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
 
   cv::Mat background_copy_small;
   cv::resize(background_copy, background_copy_small,
-      cv::Size(static_cast<int>(background_copy.cols*0.2), static_cast<int>(background_copy.rows*0.2)));
+      cv::Size(static_cast<int>(background_copy.cols*map_pub_scale_), 
+               static_cast<int>(background_copy.rows*map_pub_scale_)));
 
   //Publish visualization
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_copy_small).toImageMsg();
@@ -268,7 +284,7 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   map_pub_.publish(img_msg);
 }
 
-void TopDownRender::pcCallback(const pcl::PointCloud<PointOS1>::ConstPtr& cloud,
+void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud,
                                const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
   ROS_INFO_STREAM("pc cb");
   if (!map_->haveMap()) {
@@ -299,8 +315,8 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointOS1>::ConstPtr& cloud,
   }
 
   ROS_INFO_STREAM("Starting render");
-  //renderer_->renderSemanticTopDown(cloud, current_res_, 2*M_PI/100, top_down);
-  renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
+  renderer_->renderSemanticTopDown(cloud, current_res_, 2*M_PI/100, top_down);
+  //renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
 
   //convert pointcloud header to ROS header
   std_msgs::Header img_header;
@@ -412,13 +428,15 @@ void TopDownRender::liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
   ROS_INFO_STREAM("Got new map");
   //Convert to cv
   cv_bridge::CvImageConstPtr map_ptr = cv_bridge::toCvShare(map, sensor_msgs::image_encodings::BGR8);
-  Eigen::Vector2i map_loc_eig(map_loc->point.x, map_loc->point.y);
+  Eigen::Vector2i map_loc_eig(map_loc->point.y, -map_loc->point.x);
+  map_loc_eig *= filter_->scale();
+  map_loc_eig += Eigen::Vector2i(map->width/2, map->height/2);
+
+  map_center_ = cv::Point(map_loc_eig[0], map->height - map_loc_eig[1]);
+  filter_->updateMap(map_ptr->image, map_loc_eig);
 
   //Use colored version for viz
-  background_img_ = cv_bridge::toCvShare(map_viz, sensor_msgs::image_encodings::BGR8)->image.clone();
-  map_center_ = cv::Point(map_loc_eig[0], background_img_.size().height - map_loc_eig[1]);
-
-  filter_->updateMap(map_ptr->image, map_loc_eig);
+  background_img_ = cv_bridge::toCvCopy(map_viz, sensor_msgs::image_encodings::BGR8)->image;
 }
 
 void TopDownRender::gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose) {

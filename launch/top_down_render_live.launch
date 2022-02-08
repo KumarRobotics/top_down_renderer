@@ -13,10 +13,13 @@
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
     <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
+    <remap from="~/map_image" to="/asoom/map_sem_img"/>
+    <remap from="~/map_image_viz" to="/asoom/map_sem_img_viz"/>
+    <remap from="~/map_loc" to="/asoom/map_sem_img_center"/>
     <param name="raster_res" value="1"/>
     <param name="particle_count" value="1000"/>
 
-    <rosparam command="load" subst_value="True" file="$(find top_down_render)/config/pennovation2.yaml"/>
+    <rosparam command="load" subst_value="True" file="$(find top_down_render)/config/live_map.yaml"/>
 
     <param name="use_motion_prior" value="True"/>
     <param name="filter_pos_cov" value="0.15"/>
