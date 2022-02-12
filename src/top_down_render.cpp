@@ -24,14 +24,14 @@ void TopDownRender::initialize() {
   nh_.param<bool>("live_map", live_map, false);
   if (live_map) {
     ROS_INFO_STREAM("Using live map");
-    map_image_sub_ = new message_filters::Subscriber<sensor_msgs::Image>(nh_, "map_image", 50);
-    map_loc_sub_ = new message_filters::Subscriber<geometry_msgs::PointStamped>(nh_, "map_loc", 50);
-    live_map_sync_sub_ = new message_filters::TimeSynchronizer<sensor_msgs::Image, geometry_msgs::PointStamped>(
-                          *map_image_sub_, *map_loc_sub_, 50);
-    live_map_sync_sub_->registerCallback(&TopDownRender::liveMapCallback, this);
+    map_image_sub_ = nh_.subscribe<sensor_msgs::Image>("map_image", 1,
+        &TopDownRender::mapImageCallback, this);
+    map_loc_sub_ = nh_.subscribe<geometry_msgs::PointStamped>("map_loc", 50,
+        &TopDownRender::mapLocCallback, this);
   }
 
-  gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, &TopDownRender::gtPoseCallback, this);
+  gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, 
+      &TopDownRender::gtPoseCallback, this);
 
   pose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_est", 1);
   scale_pub_ = nh_.advertise<std_msgs::Float32>("scale", 1);
@@ -424,26 +424,51 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
   //}
 }
 
-void TopDownRender::liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
-                                    const geometry_msgs::PointStamped::ConstPtr &map_loc) {
-  ROS_INFO_STREAM("Got new map");
-  //Convert to cv and rotate
-  cv::Mat map_img;
-  cv::rotate(cv_bridge::toCvShare(map, sensor_msgs::image_encodings::BGR8)->image, map_img,
-             cv::ROTATE_90_CLOCKWISE);
-
-  cv::Mat viz_lut = cv::Mat::ones(256, 1, CV_8UC3)*255;
-  for (int original_cls=0; original_cls<flatten_lut_.size(); original_cls++) {
-    viz_lut.at<cv::Vec3b>(original_cls) = color_lut_.at<cv::Vec3b>(flatten_lut_[original_cls]);
+void TopDownRender::mapImageCallback(const sensor_msgs::Image::ConstPtr &map) {
+  if (map->header.stamp.toNSec() > last_map_stamp_) {
+    map_image_buf_.insert({map->header.stamp.toNSec(), map});
+    processMapBuffers();
   }
-  cv::LUT(map_img, viz_lut, background_img_);
+}
 
-  Eigen::Vector2i map_loc_eig(-map_loc->point.x, -map_loc->point.y);
-  map_loc_eig *= filter_->scale();
-  map_loc_eig += Eigen::Vector2i(map_img.size().width/2, map_img.size().height/2);
+void TopDownRender::mapLocCallback(const geometry_msgs::PointStamped::ConstPtr &map_loc) {
+  if (map_loc->header.stamp.toNSec() > last_map_stamp_) {
+    map_loc_buf_.insert({map_loc->header.stamp.toNSec(), map_loc});
+    processMapBuffers();
+  }
+}
 
-  map_center_ = cv::Point(map_loc_eig[0], map_img.size().height - map_loc_eig[1]);
-  filter_->updateMap(map_img, map_loc_eig);
+void TopDownRender::processMapBuffers() {
+  // Loop starting with most recent
+  for (auto loc_it = map_loc_buf_.rbegin(); loc_it != map_loc_buf_.rend(); ++loc_it) {
+    auto img = map_image_buf_.find(loc_it->first);
+    if (img != map_image_buf_.end()) {
+      ROS_INFO_STREAM("Got new map");
+      //Convert to cv and rotate
+      cv::Mat map_img;
+      cv::rotate(cv_bridge::toCvShare(img->second, sensor_msgs::image_encodings::BGR8)->image, 
+          map_img, cv::ROTATE_90_CLOCKWISE);
+
+      cv::Mat viz_lut = cv::Mat::ones(256, 1, CV_8UC3)*255;
+      for (int original_cls=0; original_cls<flatten_lut_.size(); original_cls++) {
+        viz_lut.at<cv::Vec3b>(original_cls) = color_lut_.at<cv::Vec3b>(flatten_lut_[original_cls]);
+      }
+      cv::LUT(map_img, viz_lut, background_img_);
+
+      Eigen::Vector2i map_loc_eig(-loc_it->second->point.x, -loc_it->second->point.y);
+      map_loc_eig *= filter_->scale();
+      map_loc_eig += Eigen::Vector2i(map_img.size().width/2, map_img.size().height/2);
+
+      map_center_ = cv::Point(map_loc_eig[0], map_img.size().height - map_loc_eig[1]);
+      filter_->updateMap(map_img, map_loc_eig);
+      last_map_stamp_ = loc_it->first;
+      
+      //Clean up buffers
+      map_image_buf_.erase(map_image_buf_.begin(), ++img);
+      map_loc_buf_.erase(map_loc_buf_.begin(), loc_it.base());
+      break;
+    }
+  }
 }
 
 void TopDownRender::gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose) {
