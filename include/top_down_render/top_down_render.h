@@ -44,9 +44,8 @@ class TopDownRender {
     message_filters::TimeSynchronizer<pcl::PointCloud<PointType>, geometry_msgs::PoseStamped> *scan_sync_sub_;
 
     message_filters::Subscriber<sensor_msgs::Image> *map_image_sub_;
-    message_filters::Subscriber<sensor_msgs::Image> *map_image_viz_sub_;
     message_filters::Subscriber<geometry_msgs::PointStamped> *map_loc_sub_;
-    message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image, geometry_msgs::PointStamped> *live_map_sync_sub_;
+    message_filters::TimeSynchronizer<sensor_msgs::Image, geometry_msgs::PointStamped> *live_map_sync_sub_;
 
     ros::Subscriber gt_pose_sub_;
     ros::Publisher pose_pub_;
@@ -82,7 +81,6 @@ class TopDownRender {
     void pcCallback(const pcl::PointCloud<PointType>::ConstPtr&, 
                     const geometry_msgs::PoseStamped::ConstPtr &motion_prior);
     void liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
-                         const sensor_msgs::Image::ConstPtr &map_viz,
                          const geometry_msgs::PointStamped::ConstPtr &map_loc);
     void gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose);
 };

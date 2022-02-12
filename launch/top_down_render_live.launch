@@ -14,7 +14,6 @@
     <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <remap from="~/map_image" to="/asoom/map_sem_img"/>
-    <remap from="~/map_image_viz" to="/asoom/map_sem_img_viz"/>
     <remap from="~/map_loc" to="/asoom/map_sem_img_center"/>
     <param name="raster_res" value="1"/>
     <param name="particle_count" value="300"/>

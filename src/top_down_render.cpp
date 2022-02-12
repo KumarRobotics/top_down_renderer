@@ -25,10 +25,9 @@ void TopDownRender::initialize() {
   if (live_map) {
     ROS_INFO_STREAM("Using live map");
     map_image_sub_ = new message_filters::Subscriber<sensor_msgs::Image>(nh_, "map_image", 50);
-    map_image_viz_sub_ = new message_filters::Subscriber<sensor_msgs::Image>(nh_, "map_image_viz", 50);
     map_loc_sub_ = new message_filters::Subscriber<geometry_msgs::PointStamped>(nh_, "map_loc", 50);
-    live_map_sync_sub_ = new message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image, geometry_msgs::PointStamped>(
-                          *map_image_sub_, *map_image_viz_sub_, *map_loc_sub_, 50);
+    live_map_sync_sub_ = new message_filters::TimeSynchronizer<sensor_msgs::Image, geometry_msgs::PointStamped>(
+                          *map_image_sub_, *map_loc_sub_, 50);
     live_map_sync_sub_->registerCallback(&TopDownRender::liveMapCallback, this);
   }
 
@@ -426,15 +425,18 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
 }
 
 void TopDownRender::liveMapCallback(const sensor_msgs::Image::ConstPtr &map,
-                                    const sensor_msgs::Image::ConstPtr &map_viz,
                                     const geometry_msgs::PointStamped::ConstPtr &map_loc) {
   ROS_INFO_STREAM("Got new map");
   //Convert to cv and rotate
   cv::Mat map_img;
   cv::rotate(cv_bridge::toCvShare(map, sensor_msgs::image_encodings::BGR8)->image, map_img,
              cv::ROTATE_90_CLOCKWISE);
-  cv::rotate(cv_bridge::toCvShare(map_viz, sensor_msgs::image_encodings::BGR8)->image,
-             background_img_, cv::ROTATE_90_CLOCKWISE);
+
+  cv::Mat viz_lut = cv::Mat::ones(256, 1, CV_8UC3)*255;
+  for (int original_cls=0; original_cls<flatten_lut_.size(); original_cls++) {
+    viz_lut.at<cv::Vec3b>(original_cls) = color_lut_.at<cv::Vec3b>(flatten_lut_[original_cls]);
+  }
+  cv::LUT(map_img, viz_lut, background_img_);
 
   Eigen::Vector2i map_loc_eig(-map_loc->point.x, -map_loc->point.y);
   map_loc_eig *= filter_->scale();
