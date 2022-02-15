@@ -3,6 +3,7 @@
   <arg name="simulation" default="False"/>
   <arg name="image_seg" default="False"/>
   <arg name="bagfile" default=""/>
+  <arg name="output" default="screen"/>
 
   <group if="$(eval len(arg('bagfile')) > 0)">
     <include file="$(find top_down_render)/launch/record.launch">
@@ -10,7 +11,7 @@
     </include>
   </group>
 
-  <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="screen">
+  <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="$(arg output)">
     <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <remap from="~/map_image" to="/iapetus/asoom/map_sem_img"/>
@@ -37,7 +38,7 @@
     </include>
   </group>
   <group if="$(eval not arg('simulation'))">
-    <include file="$(find depth_atlas)/launch/mapper.launch"/>
+    <include file="$(find depth_atlas)/launch/mapper.launch" pass_all_args="true"/>
   </group>
 
   <group if="$(eval arg('image_seg'))">
@@ -45,7 +46,7 @@
   </group>
 
   <group if="$(eval not arg('simulation') and not arg('image_seg'))">
-    <include file="$(find inference)/launch/inference.launch"/>
+    <include file="$(find inference)/launch/inference.launch" pass_all_args="true"/>
   </group>
 
   <group if="$(eval arg('simulation'))">
