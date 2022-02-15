@@ -30,8 +30,15 @@ StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterPara
     }
   }
 
-  state_.theta = 0;
-  state_.have_init = false;
+  if (params_.init_pos_deg_theta != std::numeric_limits<float>::infinity()) {
+    state_.theta = normal_dist(*gen)*params_.init_pos_deg_cov + params_.init_pos_deg_theta;
+    // Convert to radians
+    state_.theta *= M_PI/180;
+    state_.have_init = true;
+  } else {
+    state_.theta = 0;
+    state_.have_init = false;
+  }
 
   map_ = map;
   width_ = map_size[0];

@@ -100,6 +100,12 @@ void TopDownRender::initialize() {
   nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
   nh_.param<float>("init_pos_px_cov", filter_params.init_pos_px_cov, -1);
 
+  constexpr float inf = std::numeric_limits<float>::infinity();
+  nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
+  nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
+  nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
+  nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
+
   bool use_raster;
   nh_.param<bool>("use_raster", use_raster, false);
 
@@ -350,6 +356,11 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
   } else if (current_res_ > 0.5) {
     //we gucci, shrink to refine
     current_res_ -= 0.02;
+  }
+
+  if (filter_->numParticles() < 1) {
+    // Haven't converged yet
+    return;
   }
 
   //get mean likelihood state

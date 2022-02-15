@@ -7,6 +7,7 @@
 
 TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut, float oobc) {
   // Live map case
+  map_center_ = Eigen::Vector2i::Zero();
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
@@ -16,6 +17,7 @@ TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float re
 }
 
 TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res, float oobc) {
+  map_center_ = Eigen::Vector2i::Zero();
   resolution_ = res;
   num_classes_ = num_classes;
   num_exclusive_classes_ = num_ex;
@@ -101,6 +103,7 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
 }
 
 void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center) {
+  map_center_ = map_center;
   class_maps_.clear();
   for (size_t i=0; i<num_classes_; i++) {
     //0 inside obstacles, 1 elsewhere
@@ -165,6 +168,10 @@ int TopDownMap::numClasses() const {
 
 Eigen::Vector2i TopDownMap::size() const {
   return Eigen::Vector2i(class_maps_[0].cols(), class_maps_[0].rows());
+}
+
+Eigen::Vector2i TopDownMap::mapCenter() const {
+  return map_center_;
 }
 
 float TopDownMap::resolution() const {

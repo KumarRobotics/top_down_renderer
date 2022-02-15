@@ -24,6 +24,25 @@ void ParticleFilter::initializeParticles() {
     scale_frozen_ = true;
   }
 
+  if (scale_frozen_ && params_.init_pos_m_x != std::numeric_limits<float>::infinity()) {
+    Eigen::Vector2i map_center = map_->mapCenter();
+    params_.init_pos_px_x = (params_.init_pos_m_x*params_.fixed_scale) + map_center.x();
+    params_.init_pos_px_y = (params_.init_pos_m_y*params_.fixed_scale) + map_center.y();
+
+    if (params_.init_pos_px_x < 0 || params_.init_pos_px_x >= map_->size()[0] ||
+        params_.init_pos_px_y < 0 || params_.init_pos_px_y >= map_->size()[1]) {
+      ROS_WARN("No map received for input loc");
+      return;
+    } 
+
+    std::vector<int> cls_vec;
+    map_->getClassesAtPoint(Eigen::Vector2i(params_.init_pos_px_x, params_.init_pos_px_y), cls_vec);
+    if (std::find(cls_vec.begin(), cls_vec.end(), 1) == cls_vec.end()) {
+      ROS_WARN("No road in map at init location");
+      return;
+    }
+  }
+
   //Weights should be even
   ROS_INFO_STREAM("Initializing particles...");
   for (int i=0; i<max_num_particles_/num_at_scale; i++) {
@@ -68,6 +87,10 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   if (num_particles_ == 0 && map_->haveMap()) {
     //threads haven't started yet so don't need lock
     initializeParticles();
+    if (num_particles_ == 0) {
+      //If still no particles, then nevermind, try again later
+      return;
+    }
   }
 
   particle_lock_.lock();
@@ -149,6 +172,9 @@ void ParticleFilter::meanLikelihood(Eigen::Vector4f &mean_state) {
 
 void ParticleFilter::computeMeanCov(Eigen::Matrix4f &cov) {
   cov.setZero();
+  if (num_particles_ < 1) {
+    return;
+  }
   Eigen::Vector4f mean_likelihood_state;
   meanLikelihood(mean_likelihood_state);
 
@@ -302,6 +328,10 @@ float ParticleFilter::scale() const {
   return -1;
 }
 
+int ParticleFilter::numParticles() const {
+  return num_particles_;
+}
+
 void ParticleFilter::visualize(cv::Mat &img) {
   //Particle dist
   for (const auto& p : particles_) {
@@ -345,9 +375,11 @@ void ParticleFilter::visualize(cv::Mat &img) {
   }
   gmm_lock_.unlock();
   //Max likelihood
-  Eigen::Vector3f ml_state = max_likelihood_particle_->mlState().head<3>();
-  cv::Point pt(ml_state[0], 
-               img.size().height-ml_state[1]);
-  cv::Point dir(cos(ml_state[2])*5, -sin(ml_state[2])*5);
-  cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
+  if (max_likelihood_particle_) {
+    Eigen::Vector3f ml_state = max_likelihood_particle_->mlState().head<3>();
+    cv::Point pt(ml_state[0], 
+                 img.size().height-ml_state[1]);
+    cv::Point dir(cos(ml_state[2])*5, -sin(ml_state[2])*5);
+    cv::arrowedLine(img, pt-dir, pt+dir, cv::Scalar(255,0,0), 2, CV_AA, 0, 0.3);
+  }
 }

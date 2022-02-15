@@ -1,4 +1,6 @@
 map_path: "$(find top_down_render)/maps/pennovation2"
+live_map: False
+estimate_scale: False
 use_raster: False
 svg_res: 5.07
 svg_origin_x: 0

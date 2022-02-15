@@ -61,6 +61,7 @@ class TopDownMap {
     void getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     void getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     Eigen::Vector2i size() const;
+    Eigen::Vector2i mapCenter() const;
     int numClasses() const;
     float resolution() const;
     bool haveMap() const;
@@ -74,6 +75,7 @@ class TopDownMap {
     float out_of_bounds_const_;
     bool have_map_;
     Eigen::VectorXi flatten_lut_;
+    Eigen::Vector2i map_center_;
 
     void saveRasterizedMaps(const std::string &path);
     void loadRasterizedMaps(const std::string &path);

@@ -24,6 +24,11 @@ typedef struct FilterParams {
   float init_pos_px_x = -1; 
   float init_pos_px_y = -1;
   float init_pos_px_cov = -1;
+
+  float init_pos_m_x = -1; 
+  float init_pos_m_y = -1;
+  float init_pos_deg_theta = -1;
+  float init_pos_deg_cov = -1;
 } FilterParams;
 
 class StateParticle {
