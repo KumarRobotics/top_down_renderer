@@ -30,6 +30,7 @@ void TopDownRender::initialize() {
         &TopDownRender::mapLocCallback, this);
   }
 
+  gt_pose_ = Eigen::Affine2f::Identity();
   gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, 
       &TopDownRender::gtPoseCallback, this);
 
@@ -437,8 +438,11 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
 
 void TopDownRender::mapImageCallback(const sensor_msgs::Image::ConstPtr &map) {
   if (map->header.stamp.toNSec() > last_map_stamp_) {
-    map_image_buf_.insert({map->header.stamp.toNSec(), map});
-    processMapBuffers();
+    // Initial sanity check
+    if (map->height > 0 && map->width > 0) {
+      map_image_buf_.insert({map->header.stamp.toNSec(), map});
+      processMapBuffers();
+    }
   }
 }
 
