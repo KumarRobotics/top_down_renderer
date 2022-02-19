@@ -97,6 +97,8 @@ void TopDownRender::initialize() {
     filter_params.fixed_scale = -1;
   }
 
+  nh_.param<float>("conf_factor", conf_factor_, 1);
+
   nh_.param<float>("init_pos_px_x", filter_params.init_pos_px_x, -1);
   nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
   nh_.param<float>("init_pos_px_cov", filter_params.init_pos_px_cov, -1);
@@ -400,16 +402,18 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
     pose.pose.pose.orientation.z = sin(ml_state[2]/2);
     pose.pose.pose.orientation.w = cos(ml_state[2]/2);
 
+    float conf_factor_2 = conf_factor_*conf_factor_;
+
     //cov
-    pose.pose.covariance[0] = cov(0,0)/scale_2;
-    pose.pose.covariance[1] = cov(0,1)/scale_2;
-    pose.pose.covariance[5] = cov(0,2)/scale;
-    pose.pose.covariance[6] = cov(1,0)/scale_2;
-    pose.pose.covariance[7] = cov(1,1)/scale_2;
-    pose.pose.covariance[11] = cov(1,2)/scale;
-    pose.pose.covariance[30] = cov(2,0)/scale;
-    pose.pose.covariance[31] = cov(2,1)/scale;
-    pose.pose.covariance[35] = cov(2,2);
+    pose.pose.covariance[0] = cov(0,0)/scale_2/conf_factor_2;
+    pose.pose.covariance[1] = cov(0,1)/scale_2/conf_factor_2;
+    pose.pose.covariance[5] = cov(0,2)/scale/conf_factor_;
+    pose.pose.covariance[6] = cov(1,0)/scale_2/conf_factor_2;
+    pose.pose.covariance[7] = cov(1,1)/scale_2/conf_factor_2;
+    pose.pose.covariance[11] = cov(1,2)/scale/conf_factor_;
+    pose.pose.covariance[30] = cov(2,0)/scale/conf_factor_;
+    pose.pose.covariance[31] = cov(2,1)/scale/conf_factor_;
+    pose.pose.covariance[35] = cov(2,2)/conf_factor_2;
 
     pose_pub_.publish(pose);
   }
