@@ -9,13 +9,13 @@ void TopDownRender::initialize() {
   bool use_motion_prior;
   nh_.param<bool>("use_motion_prior", use_motion_prior, false);
   if (use_motion_prior) {
-    pc_sync_sub_ = new message_filters::Subscriber<pcl::PointCloud<PointType>>(nh_, "pc", 50);
+    pc_sync_sub_ = new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh_, "pc", 50);
     motion_prior_sync_sub_ = new message_filters::Subscriber<geometry_msgs::PoseStamped>(nh_, "motion_prior", 50);
-    scan_sync_sub_ = new message_filters::TimeSynchronizer<pcl::PointCloud<PointType>, geometry_msgs::PoseStamped>(
+    scan_sync_sub_ = new message_filters::TimeSynchronizer<sensor_msgs::PointCloud2, geometry_msgs::PoseStamped>(
                       *pc_sync_sub_, *motion_prior_sync_sub_, 50);
     scan_sync_sub_->registerCallback(&TopDownRender::pcCallback, this);
   } else {
-    pc_sub_ = nh_.subscribe<pcl::PointCloud<PointType>>("pc", 10, 
+    pc_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("pc", 10, 
                 std::bind(&TopDownRender::pcCallback, this, std::placeholders::_1, 
                           geometry_msgs::PoseStamped::ConstPtr()));
   }
@@ -169,7 +169,7 @@ void TopDownRender::initialize() {
   ROS_INFO_STREAM("Setup complete");
 }
 
-void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
+void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header) {
   cv::Mat map_color;
   visualize(top_down, map_color);
 
@@ -179,7 +179,7 @@ void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_dow
   scan_pub_.publish(img_msg);
 }
 
-void TopDownRender::publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header) {
+void TopDownRender::publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header) {
   cv::Mat map_color;
   visualize(top_down, map_color);
 
@@ -233,7 +233,7 @@ void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &im
 }
 
 //Debug function
-void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header, TopDownMap *map) {
+void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float res, const std_msgs::Header &header, TopDownMap *map) {
   std::vector<Eigen::ArrayXXf> classes;
   for (int i=0; i<map->numClasses(); i++) {
     Eigen::ArrayXXf cls(h, w);
@@ -257,7 +257,7 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
 
 void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
                                  std::vector<Eigen::ArrayXXf> &top_down_geo, float res,
-                                 Eigen::Affine3f &motion_prior, std_msgs::Header &header) {
+                                 Eigen::Affine3f &motion_prior, const std_msgs::Header &header) {
   auto start = std::chrono::high_resolution_clock::now();
   //Project 3d prior to 2d
   Eigen::Vector2f motion_priort = motion_prior.translation().head<2>();
@@ -293,7 +293,7 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   map_pub_.publish(img_msg);
 }
 
-void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud,
+void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
                                const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
   ROS_INFO_STREAM("pc cb");
   if (!map_->haveMap()) {
@@ -302,6 +302,9 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
   }
 
   auto start = std::chrono::high_resolution_clock::now();
+
+  pcl::PointCloud<PointType>::Ptr cloud_ptr(new pcl::PointCloud<PointType>());
+  pcl::fromROSMsg(*cloud_msg, *cloud_ptr);
 
   //pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
   //pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
@@ -324,15 +327,12 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
   }
 
   ROS_INFO_STREAM("Starting render");
-  renderer_->renderSemanticTopDown(cloud, current_res_, 2*M_PI/100, top_down);
+  renderer_->renderSemanticTopDown(cloud_ptr, current_res_, 2*M_PI/100, top_down);
   //renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
 
   //convert pointcloud header to ROS header
-  std_msgs::Header img_header;
-  publishSemanticTopDown(top_down, img_header);
-  publishGeometricTopDown(top_down_geo, img_header);
-
-  pcl_conversions::fromPCL(cloud->header, img_header);
+  publishSemanticTopDown(top_down, cloud_msg->header);
+  publishGeometricTopDown(top_down_geo, cloud_msg->header);
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
@@ -347,7 +347,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
   last_prior_pose_ = motion_prior_eig.cast<float>();
 
   //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
-  updateFilter(top_down, top_down_geo, current_res_, delta_pose, img_header);
+  updateFilter(top_down, top_down_geo, current_res_, delta_pose, cloud_msg->header);
   Eigen::Matrix4f cov;
   filter_->computeMeanCov(cov);
 
@@ -384,7 +384,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
 
   if (is_converged_) {
     geometry_msgs::PoseWithCovarianceStamped pose;
-    pose.header = pcl_conversions::fromPCL(cloud->header);
+    pose.header = cloud_msg->header;
     pose.header.frame_id = "world";
 
     std_msgs::Float32 scale_msg;
@@ -415,7 +415,7 @@ void TopDownRender::pcCallback(const pcl::PointCloud<PointType>::ConstPtr& cloud
   }
 
   geometry_msgs::TransformStamped map_svg_transform;
-  map_svg_transform.header.stamp = pcl_conversions::fromPCL(cloud->header.stamp);
+  map_svg_transform.header.stamp = cloud_msg->header.stamp;
   map_svg_transform.header.frame_id = "world";
   map_svg_transform.child_frame_id = "sem_map";
   map_svg_transform.transform.translation.x = (background_img_.size().width/2-map_center_.x)/scale;

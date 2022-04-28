@@ -24,9 +24,19 @@
     <param name="filter_theta_cov" value="0.004"/>
     <param name="filter_regularization" value="0.7"/>
 
-    <remap from="~/pose_est" to="/spomp_mapper/global_est"/>
-    <remap from="~/motion_prior" to="/os_node/llol_odom/pose"/>
+    <remap from="~/pose_est" to="/upslam/sem_pose" />
+    <remap from="~/motion_prior" to="/upslam/integrated_pose"/>
   </node>
+
+  <group if="$(eval arg('simulation'))">
+    <include file="$(find depth_atlas)/launch/mapper.launch" pass_all_args="true">
+      <arg name="lidar_width" value="256"/>
+      <arg name="lidar_height" value="32"/>
+    </include>
+  </group>
+  <group if="$(eval not arg('simulation'))">
+    <include file="$(find depth_atlas)/launch/mapper.launch"/>
+  </group>
 
   <group if="$(eval arg('image_seg'))">
     <include file="$(find image_folder_sync)/launch/image_folder_sync.launch"/>

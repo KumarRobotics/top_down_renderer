@@ -39,9 +39,9 @@ class TopDownRender {
     image_transport::ImageTransport *it_;
     tf2_ros::TransformBroadcaster *tf2_broadcaster_;
     ros::Subscriber pc_sub_;
-    message_filters::Subscriber<pcl::PointCloud<PointType>> *pc_sync_sub_;
+    message_filters::Subscriber<sensor_msgs::PointCloud2> *pc_sync_sub_;
     message_filters::Subscriber<geometry_msgs::PoseStamped> *motion_prior_sync_sub_;
-    message_filters::TimeSynchronizer<pcl::PointCloud<PointType>, geometry_msgs::PoseStamped> *scan_sync_sub_;
+    message_filters::TimeSynchronizer<sensor_msgs::PointCloud2, geometry_msgs::PoseStamped> *scan_sync_sub_;
 
     ros::Subscriber map_image_sub_;
     ros::Subscriber map_loc_sub_;
@@ -73,15 +73,15 @@ class TopDownRender {
     float current_res_ = 4; //m/px range
     bool is_converged_ = false;
 
-    void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
-    void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, std_msgs::Header &header);
-    void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, std_msgs::Header &header, TopDownMap *map);
+    void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
+    void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
+    void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, const std_msgs::Header &header, TopDownMap *map);
     void visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img);
     cv::Mat visualizeAnalog(Eigen::ArrayXXf &cls, float scale);
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
                       std::vector<Eigen::ArrayXXf> &top_down_geo, float res, 
-                      Eigen::Affine3f &motion_prior, std_msgs::Header &header);
-    void pcCallback(const pcl::PointCloud<PointType>::ConstPtr&, 
+                      Eigen::Affine3f &motion_prior, const std_msgs::Header &header);
+    void pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg, 
                     const geometry_msgs::PoseStamped::ConstPtr &motion_prior);
     void mapImageCallback(const sensor_msgs::Image::ConstPtr &map);
     void mapLocCallback(const geometry_msgs::PointStamped::ConstPtr &map_loc);
