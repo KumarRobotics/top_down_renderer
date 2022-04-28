@@ -69,6 +69,7 @@ class TopDownRender {
     std::map<long, const geometry_msgs::PointStamped::ConstPtr> map_loc_buf_;
 
     float map_pub_scale_ = 1;
+    float conf_factor_ = 1;
 
     float current_res_ = 4; //m/px range
     bool is_converged_ = false;

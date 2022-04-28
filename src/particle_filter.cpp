@@ -35,9 +35,18 @@ void ParticleFilter::initializeParticles() {
       return;
     } 
 
-    std::vector<int> cls_vec;
-    map_->getClassesAtPoint(Eigen::Vector2i(params_.init_pos_px_x, params_.init_pos_px_y), cls_vec);
-    if (std::find(cls_vec.begin(), cls_vec.end(), 1) == cls_vec.end()) {
+    bool good_init = false;
+    for (int dx=-4; dx<=4; dx++) {
+      for (int dy=-4; dy<=4; dy++) {
+        std::vector<int> cls_vec;
+        map_->getClassesAtPoint(Eigen::Vector2i(params_.init_pos_px_x+dx, params_.init_pos_px_y+dy), cls_vec);
+        if (std::find(cls_vec.begin(), cls_vec.end(), 1) != cls_vec.end()) {
+          good_init = true;
+          break;
+        }
+      }
+    }
+    if (!good_init) {
       ROS_WARN("No road in map at init location");
       return;
     }
