@@ -14,6 +14,11 @@
 #include <opencv2/ml/ml.hpp>
 #include <opencv2/imgproc/imgproc.hpp> //cv::circle
 
+#ifndef CV_AA
+// OpenCV4 compat
+#define CV_AA cv::LINE_AA
+#endif
+
 class ParticleFilter {
   public:
     ParticleFilter(int N, TopDownMapPolar *map, FilterParams &params);

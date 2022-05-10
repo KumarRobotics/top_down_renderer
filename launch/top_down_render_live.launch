@@ -22,8 +22,8 @@
     <rosparam command="load" subst_value="True" file="$(find top_down_render)/config/live_map.yaml"/>
 
     <param name="use_motion_prior" value="True"/>
-    <param name="filter_pos_cov" value="0.05"/>
-    <param name="filter_theta_cov" value="0.002"/>
+    <param name="filter_pos_cov" value="0.15"/>
+    <param name="filter_theta_cov" value="0.005"/>
     <param name="filter_regularization" value="0.5"/>
     <param name="out_of_bounds_const" value="3"/>
 
