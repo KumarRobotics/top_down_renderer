@@ -64,7 +64,7 @@ class TopDownRender {
     ParticleFilter *filter_;
     ScanRendererPolar *renderer_;
 
-    long last_map_stamp_;
+    long last_map_stamp_ = 0;
     std::map<long, const sensor_msgs::Image::ConstPtr> map_image_buf_;
     std::map<long, const geometry_msgs::PointStamped::ConstPtr> map_loc_buf_;
 
