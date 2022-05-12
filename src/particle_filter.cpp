@@ -103,6 +103,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   }
 
   particle_lock_.lock();
+  ROS_INFO_STREAM("computing weights...");
   //Recompute weights
   std::for_each(std::execution::par, particles_.begin(), particles_.end(), 
                 std::bind(&StateParticle::computeWeight, std::placeholders::_1, top_down_scan, top_down_geo, res));
@@ -141,9 +142,11 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   if (num_particles_ < new_particles_.size()) {
     new_particles_.resize(num_particles_);
   } else {
+    ROS_DEBUG_STREAM("current size: " << new_particles_.size());
     while (new_particles_.size() < num_particles_) {
-      new_particles_.push_back(std::make_shared<StateParticle>(gen_, map_, params_));
+      new_particles_.push_back(std::make_shared<StateParticle>(gen_, map_, params_, false));
     }
+    ROS_DEBUG("Created new particles");
   }
   
   //Resample
@@ -161,6 +164,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
     }
     new_particles_[i]->setState(particles_[j]->state());
   }
+  ROS_DEBUG("Resampled");
   particles_.swap(new_particles_);
   particle_lock_.unlock();
 }
@@ -239,7 +243,8 @@ void ParticleFilter::computeGMM() {
   int num_samples = std::min(1000, static_cast<int>(particles_.size()));
   cv::Mat samples = cv::Mat(num_samples, 4, CV_64F);
   for (int i=0; i<num_samples; i+=1) {
-    Eigen::Vector3f state = particles_[i*particles_.size()/num_samples]->mlState().head<3>();
+    Eigen::Vector3f state = particles_[std::min<int>(particles_.size() - 1, 
+        i*particles_.size()/num_samples)]->mlState().head<3>();
     samples.at<double>(i, 0) = state[0];
     samples.at<double>(i, 1) = state[1];
     samples.at<double>(i, 2) = 50*cos(state[2]);

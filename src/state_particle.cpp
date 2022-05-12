@@ -1,6 +1,6 @@
 #include "top_down_render/state_particle.h"
 
-StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams &params) {
+StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams &params, bool init) {
   params_ = params;
   gen_ = gen;
   last_dist_ = 0;
@@ -10,34 +10,36 @@ StateParticle::StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterPara
   std::vector<int> cls_vec;
   Eigen::Vector2f map_size = map->size().cast<float>() * map->resolution();
 
-  if (params_.fixed_scale < 0) {
-    state_.scale = std::pow(10, (uniform_dist(*gen)-0.5)*2);
-  } else {
-    state_.scale = params_.fixed_scale;
-  }
-
-  while (true) {
-    if (params_.init_pos_px_x > 0) { 
-      state_.init_x_px = std::clamp<float>(normal_dist(*gen)*params_.init_pos_px_cov + params_.init_pos_px_x, 0, map_size[0]);
-      state_.init_y_px = std::clamp<float>(normal_dist(*gen)*params_.init_pos_px_cov + params_.init_pos_px_y, 0, map_size[1]);
+  if (init) {
+    if (params_.fixed_scale < 0) {
+      state_.scale = std::pow(10, (uniform_dist(*gen)-0.5)*2);
     } else {
-      state_.init_x_px = uniform_dist(*gen)*map_size[0];
-      state_.init_y_px = uniform_dist(*gen)*map_size[1];
+      state_.scale = params_.fixed_scale;
     }
-    map->getClassesAtPoint(Eigen::Vector2i(state_.init_x_px, state_.init_y_px), cls_vec);
-    if (std::find(cls_vec.begin(), cls_vec.end(), 1) != cls_vec.end()) {
-      break; //Particle is on the road
-    }
-  }
 
-  if (params_.init_pos_deg_theta != std::numeric_limits<float>::infinity()) {
-    state_.theta = normal_dist(*gen)*params_.init_pos_deg_cov + params_.init_pos_deg_theta;
-    // Convert to radians
-    state_.theta *= M_PI/180;
-    state_.have_init = true;
-  } else {
-    state_.theta = 0;
-    state_.have_init = false;
+    while (true) {
+      if (params_.init_pos_px_x > 0) { 
+        state_.init_x_px = std::clamp<float>(normal_dist(*gen)*params_.init_pos_px_cov + params_.init_pos_px_x, 0, map_size[0]);
+        state_.init_y_px = std::clamp<float>(normal_dist(*gen)*params_.init_pos_px_cov + params_.init_pos_px_y, 0, map_size[1]);
+      } else {
+        state_.init_x_px = uniform_dist(*gen)*map_size[0];
+        state_.init_y_px = uniform_dist(*gen)*map_size[1];
+      }
+      map->getClassesAtPoint(Eigen::Vector2i(state_.init_x_px, state_.init_y_px), cls_vec);
+      if (std::find(cls_vec.begin(), cls_vec.end(), 1) != cls_vec.end()) {
+        break; //Particle is on the road
+      }
+    }
+
+    if (params_.init_pos_deg_theta != std::numeric_limits<float>::infinity()) {
+      state_.theta = normal_dist(*gen)*params_.init_pos_deg_cov + params_.init_pos_deg_theta;
+      // Convert to radians
+      state_.theta *= M_PI/180;
+      state_.have_init = true;
+    } else {
+      state_.theta = 0;
+      state_.have_init = false;
+    }
   }
 
   map_ = map;

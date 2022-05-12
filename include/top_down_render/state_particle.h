@@ -7,13 +7,13 @@
 #include <chrono>
 
 typedef struct State {
-  float init_x_px;
-  float init_y_px;
+  float init_x_px = 0;
+  float init_y_px = 0;
   float dx_m = 0;
   float dy_m = 0;
-  float theta;
-  float scale; //px/m
-  bool have_init;
+  float theta = 0;
+  float scale = 1; //px/m
+  bool have_init = false;
 } State;
 
 typedef struct FilterParams {
@@ -33,7 +33,7 @@ typedef struct FilterParams {
 
 class StateParticle {
   public:
-    StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams &params);
+    StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams &params, bool init=true);
     
     void propagate(Eigen::Vector2f &trans, float omega, bool scale_freeze=false);
     State state() const;

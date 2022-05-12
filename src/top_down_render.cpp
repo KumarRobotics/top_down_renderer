@@ -72,7 +72,7 @@ void TopDownRender::initialize() {
   flatten_lut_[2] = 4;   //building
   flatten_lut_[3] = 1;   //terrain
   flatten_lut_[4] = 2;   //car
-
+  flatten_lut_[6] = 3;   //dirt/gravel
 
   float svg_res = -1;
   float raster_res = 1;
@@ -267,11 +267,13 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   float motion_priora = std::atan2(proj_rot[1], proj_rot[0]);
   ROS_INFO_STREAM(motion_priort << ", " << motion_priora);
   filter_->propagate(motion_priort, motion_priora);
+  ROS_DEBUG("Filter propagate");
 
   filter_->update(top_down, top_down_geo, res);
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
   ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
+  ROS_DEBUG("test");
 
   cv::Mat background_copy = background_img_.clone();
   filter_->visualize(background_copy);
@@ -444,6 +446,7 @@ void TopDownRender::mapImageCallback(const sensor_msgs::Image::ConstPtr &map) {
   if (map->header.stamp.toNSec() > last_map_stamp_) {
     // Initial sanity check
     if (map->height > 0 && map->width > 0) {
+      ROS_DEBUG("Got map img");
       map_image_buf_.insert({map->header.stamp.toNSec(), map});
       processMapBuffers();
     }
@@ -452,6 +455,7 @@ void TopDownRender::mapImageCallback(const sensor_msgs::Image::ConstPtr &map) {
 
 void TopDownRender::mapLocCallback(const geometry_msgs::PointStamped::ConstPtr &map_loc) {
   if (map_loc->header.stamp.toNSec() > last_map_stamp_) {
+    ROS_DEBUG("Got map loc");
     map_loc_buf_.insert({map_loc->header.stamp.toNSec(), map_loc});
     processMapBuffers();
   }
