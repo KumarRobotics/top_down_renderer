@@ -12,7 +12,7 @@
   </group>
 
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="$(arg output)">
-    <remap from="~/pc" to="/lidar_rgb_calib/painted_pc"/>
+    <remap from="~/pc" to="/os_node/segmented_point_cloud"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <param name="raster_res" value="1"/>
     <param name="particle_count" value="1000"/>
@@ -33,7 +33,7 @@
   </group>
 
   <group if="$(eval not arg('simulation') and not arg('image_seg'))">
-    <include file="$(find inference)/launch/inference.launch" pass_all_args="true"/>
+    <include file="$(find rangenet_inf)/launch/rangenet_inf.launch" pass_all_args="true"/>
   </group>
 
   <group if="$(eval arg('simulation'))">
