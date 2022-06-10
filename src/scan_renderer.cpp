@@ -4,7 +4,7 @@ ScanRenderer::ScanRenderer(const Eigen::VectorXi &flatten_lut) {
   flatten_lut_ = flatten_lut;
 }
 
-void ScanRenderer::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+void ScanRenderer::renderGeometricTopDown(const pcl::PointCloud<PointType>::ConstPtr& cloud, 
                                           float res, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 2) return;
   Eigen::Vector2i img_size(imgs[0].cols(), imgs[0].rows());
@@ -21,7 +21,7 @@ void ScanRenderer::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB
 
     //Scan up a vertical scan line
     for (size_t idy=0; idy<cloud->height; idy++) {
-      pcl::PointXYZRGB pcl_pt = cloud->at(idx, idy);
+      PointType pcl_pt = cloud->at(idx, idy);
       pt << pcl_pt.x, pcl_pt.y, pcl_pt.z;
       if (pt[0] == 0 && pt[1] == 0) continue;
       int x_ind = std::round(pt[0]/res)+img_size[0]/2;
@@ -52,7 +52,7 @@ void ScanRenderer::renderGeometricTopDown(const pcl::PointCloud<pcl::PointXYZRGB
   }
 }
 
-void ScanRenderer::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+void ScanRenderer::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr& cloud, 
                                          float res, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 1) return;
   Eigen::Vector2i img_size(imgs[0].cols(), imgs[0].rows());
@@ -69,7 +69,7 @@ void ScanRenderer::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>
     int x_ind = std::round(pt.x/res)+img_size[0]/2;
     int y_ind = std::round(pt.y/res)+img_size[1]/2;
     if (x_ind >= 0 && x_ind < img_size[0] && y_ind >= 0 && y_ind < img_size[1]) {
-      int pt_class = *reinterpret_cast<const int*>(&cloud->points[idx].rgb) & 0xff;
+      int pt_class = cloud->points[idx].intensity;
       imgs[flatten_lut_[pt_class]-1](y_ind, x_ind)++;
     }
   }

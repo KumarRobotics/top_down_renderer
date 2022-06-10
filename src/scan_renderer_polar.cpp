@@ -80,7 +80,7 @@ void ScanRendererPolar::renderGeometricTopDown(const pcl::PointCloud<PointType>:
   }
 }
 
-void ScanRendererPolar::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud, 
+void ScanRendererPolar::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr& cloud, 
                                               float res, float ang_res, std::vector<Eigen::ArrayXXf> &imgs) {
   if (imgs.size() < 1) return;
   Eigen::Vector2i img_size(imgs[0].rows(), imgs[0].cols());
@@ -100,7 +100,7 @@ void ScanRendererPolar::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXY
     int theta_ind = std::round(theta/ang_res)+img_size[0]/2;
     int r_ind = std::round(r/res);
     if (theta_ind >= 0 && theta_ind < img_size[0] && r_ind >= 0 && r_ind < img_size[1]) {
-      int pt_class = (*reinterpret_cast<const int*>(&cloud->points[idx].rgb) >> 8) & 0xff;
+      int pt_class = cloud->points[idx].intensity;
       if (flatten_lut_[pt_class] > 0) {  
         imgs[flatten_lut_[pt_class]-1](theta_ind, r_ind) += 1;
       }
