@@ -14,8 +14,10 @@
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="$(arg output)">
     <remap from="~/pc" to="/os_node/segmented_point_cloud"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
+    <remap from="~/map_image" to="/titan/asoom/map_sem_img"/>
+    <remap from="~/map_loc" to="/titan/asoom/map_sem_img_center"/>
     <param name="raster_res" value="1"/>
-    <param name="particle_count" value="1000"/>
+    <param name="particle_count" value="300"/>
 
     <rosparam command="load" subst_value="True" file="$(find top_down_render)/config/pennovation2.yaml"/>
 
@@ -23,6 +25,7 @@
     <param name="filter_pos_cov" value="0.15"/>
     <param name="filter_theta_cov" value="0.004"/>
     <param name="filter_regularization" value="0.7"/>
+    <param name="out_of_bounds_const" value="3"/>
 
     <remap from="~/pose_est" to="/spomp_mapper/global_est"/>
     <remap from="~/motion_prior" to="/os_node/llol_odom/pose"/>
