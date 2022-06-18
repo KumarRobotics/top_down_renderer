@@ -47,7 +47,7 @@ void TopDownRender::initialize() {
   color_lut_.at<cv::Vec3b>(0) = cv::Vec3b(255,255,255); //unlabeled
   color_lut_.at<cv::Vec3b>(1) = cv::Vec3b(0,100,0);     //terrain
   color_lut_.at<cv::Vec3b>(2) = cv::Vec3b(255,0,0);     //road
-  color_lut_.at<cv::Vec3b>(3) = cv::Vec3b(255,0,255);   //dirt
+  color_lut_.at<cv::Vec3b>(3) = cv::Vec3b(100,100,0);   //dirt
   color_lut_.at<cv::Vec3b>(4) = cv::Vec3b(0,0,255);     //building
   color_lut_.at<cv::Vec3b>(5) = cv::Vec3b(0,255,0);     //veg
   color_lut_.at<cv::Vec3b>(6) = cv::Vec3b(255,255,0);   //car
