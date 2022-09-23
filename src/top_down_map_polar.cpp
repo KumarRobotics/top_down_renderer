@@ -1,18 +1,6 @@
 #include "top_down_render/top_down_map_polar.h"
 
-TopDownMapPolar::TopDownMapPolar(cv::Mat& color_lut, int num_classes, int num_ex, float res, 
-    const Eigen::VectorXi &flatten_lut, float oobc)
-  : TopDownMap(color_lut, num_classes, num_ex, res, flatten_lut, oobc)
-{
-  //Default
-  samplePtsPolar(Eigen::Vector2i(100,50), 2*M_PI/100);
-}
-
-TopDownMapPolar::TopDownMapPolar(std::string path, cv::Mat& color_lut, int num_classes, 
-    int num_ex, float res, float oobc)
-  : TopDownMap(path, color_lut, num_classes, num_ex, res, oobc)
-{
-  //Default
+TopDownMapPolar::TopDownMapPolar(const Params& params) : TopDownMap(params) {
   samplePtsPolar(Eigen::Vector2i(100,50), 2*M_PI/100);
 }
 
@@ -23,7 +11,7 @@ void TopDownMapPolar::samplePtsPolar(Eigen::Vector2i shape, float ang_res) {
   ang_pts.row(1) += -ang_pts.row(1)[0]; //shift to start at 0
 
   ang_pts.row(0) *= ang_res;
-  ang_pts.row(1) *= 1./resolution_;
+  ang_pts.row(1) *= 1./params_.resolution;
 
   //convert to cartesian
   ang_sample_pts_.row(0) = Eigen::cos(ang_pts.row(0))*ang_pts.row(1); //x
@@ -37,8 +25,8 @@ void TopDownMapPolar::getLocalMap(Eigen::Vector2f center,
 
   //Generate list of indices
   Eigen::Array2Xf pts = ang_sample_pts_*scale*res;
-  pts.row(0) += center[1]/resolution_;
-  pts.row(1) += center[0]/resolution_;
+  pts.row(0) += center[1]/params_.resolution;
+  pts.row(1) += center[0]/params_.resolution;
   Eigen::Array2Xi pts_int = pts.round().cast<int>();
 
   for (int cls=0; cls<dists.size(); cls++) {
@@ -47,7 +35,7 @@ void TopDownMapPolar::getLocalMap(Eigen::Vector2f center,
           pts_int(1, idx) >= 0 && pts_int(1, idx) < class_maps_[cls].cols()) {
         dists[cls](idx) = class_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = out_of_bounds_const_;
+        dists[cls](idx) = params_.out_of_bounds_const;
       }
     }
   }
@@ -60,8 +48,8 @@ void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center,
 
   //Generate list of indices
   Eigen::Array2Xf pts = ang_sample_pts_*scale*res;
-  pts.row(0) += center[1]/resolution_;
-  pts.row(1) += center[0]/resolution_;
+  pts.row(0) += center[1]/params_.resolution;
+  pts.row(1) += center[0]/params_.resolution;
   Eigen::Array2Xi pts_int = pts.round().cast<int>();
 
   for (int cls=0; cls<dists.size(); cls++) {
@@ -70,7 +58,7 @@ void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center,
           pts_int(1, idx) >= 0 && pts_int(1, idx) < geo_maps_[cls].cols()) {
         dists[cls](idx) = geo_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = out_of_bounds_const_;
+        dists[cls](idx) = params_.out_of_bounds_const;
       }
     }
   }

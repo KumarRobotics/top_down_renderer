@@ -50,6 +50,16 @@ void read_binary(std::string &filename, Matrix& matrix){
 
 class TopDownMap {
   public:
+    struct Params {
+      std::string path = ""; // Only needed if static map
+      cv::Mat color_lut; // Only needed if static map
+      Eigen::VectorXi flatten_lut; // Only needed if dynamic map
+      int num_classes;
+      int num_exclusive_classes;
+      float resolution = 1;
+      float out_of_bounds_const = 5;
+    };
+    TopDownMap(const Params& params);
     TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, 
                const Eigen::VectorXi &flatten_lut, float oobc=5);
     TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res, 
@@ -69,12 +79,9 @@ class TopDownMap {
     std::vector<std::vector<std::vector<Eigen::Vector2f>>> poly_;
     std::vector<Eigen::ArrayXXf> class_maps_;
     std::vector<Eigen::ArrayXXf> geo_maps_;
-    float resolution_; //pixels for svg per per pixel for rasterized map
-    int num_classes_;
-    int num_exclusive_classes_;
-    float out_of_bounds_const_;
+
+    Params params_;
     bool have_map_;
-    Eigen::VectorXi flatten_lut_;
     Eigen::Vector2i map_center_;
 
     void saveRasterizedMaps(const std::string &path);

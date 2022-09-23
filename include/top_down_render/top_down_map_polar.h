@@ -5,10 +5,7 @@
 
 class TopDownMapPolar : public TopDownMap {
   public:
-    TopDownMapPolar(cv::Mat& color_lut, int num_classes, int num_ex, float res, 
-        const Eigen::VectorXi &flatten_lut, float oobc=5);
-    TopDownMapPolar(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res,
-        float oobc=5);
+    TopDownMapPolar(const Params& params);
 
     //Overriden versions for polar map gen
     void getLocalMap(Eigen::Vector2f center, float scale, float res, std::vector<Eigen::ArrayXXf> &dists);

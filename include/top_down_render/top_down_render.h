@@ -74,6 +74,8 @@ class TopDownRender {
     float current_res_ = 4; //m/px range
     bool is_converged_ = false;
 
+    void load
+
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
     void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, const std_msgs::Header &header, TopDownMap *map);

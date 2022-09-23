@@ -5,43 +5,34 @@
 #define NANOSVG_IMPLEMENTATION
 #include "top_down_render/nanosvg.h"
 
-TopDownMap::TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, const Eigen::VectorXi &flatten_lut, float oobc) {
-  // Live map case
+TopDownMap::TopDownMap(const TopDownMap::Params& params) {
+  params_ = params;
   map_center_ = Eigen::Vector2i::Zero();
-  resolution_ = res;
-  num_classes_ = num_classes;
-  num_exclusive_classes_ = num_ex;
-  have_map_ = false;
-  flatten_lut_ = flatten_lut;
-  out_of_bounds_const_ = oobc;
-}
+  if (params_.path == "") {
+    // No static map case
+    have_map_ = false;
+    return;
+  }
 
-TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res, float oobc) {
-  map_center_ = Eigen::Vector2i::Zero();
-  resolution_ = res;
-  num_classes_ = num_classes;
-  num_exclusive_classes_ = num_ex;
-  out_of_bounds_const_ = oobc;
-
-  if (loadCacheMetaData(path)) {
+  if (loadCacheMetaData(params_.path)) {
     loadCachedMaps();
     ROS_INFO_STREAM("Loaded cached maps");
   } else {
-    if (path.substr(path.size()-4) == ".svg") { 
+    if (params_.path.substr(params_.path.size()-4) == ".svg") { 
       //parse svg
       NSVGimage* map;
 
-      ROS_INFO_STREAM("No cache found, Loading vector map " << path);
-      map = nsvgParseFromFile(path.c_str(), "px", 96);
+      ROS_INFO_STREAM("Loading vector map " << params_.path);
+      map = nsvgParseFromFile(params_.path.c_str(), "px", 96);
 
       if (map == NULL) {
         ROS_ERROR("Map loading failed");
         return;
       }
 
-      for (size_t cls=1; cls<=num_classes; cls++) {
+      for (size_t cls=1; cls<=params_.num_classes; cls++) {
         std::vector<std::vector<Eigen::Vector2f>> class_poly;
-        cv::Vec3b color = color_lut.at<cv::Vec3b>(cls);
+        cv::Vec3b color = params_.color_lut.at<cv::Vec3b>(cls);
         int color_compressed = color[0] << 16 | color[1] << 8 | color[2];
 
         //iterate through shapes
@@ -70,19 +61,19 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
 
       //Generate full rasterized map
       ROS_INFO_STREAM("Rasterizing map...");
-      for (size_t i=0; i<num_classes; i++) {
-        Eigen::ArrayXXf class_map(static_cast<int>(map->height/resolution_), 
-                                  static_cast<int>(map->width/resolution_)); //0 inside obstacles, 1 elsewhere
+      for (size_t i=0; i<params_.num_classes; i++) {
+        Eigen::ArrayXXf class_map(static_cast<int>(map->height/params_.resolution), 
+                                  static_cast<int>(map->width/params_.resolution)); //0 inside obstacles, 1 elsewhere
         class_maps_.push_back(class_map);
       }
 
       ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
-      getRasterMap(Eigen::Vector2f(map->width/2, map->height/2), 0, resolution_, class_maps_);
+      getRasterMap(Eigen::Vector2f(map->width/2, map->height/2), 0, params_.resolution, class_maps_);
 
-      saveRasterizedMaps(path.substr(0, path.size()-4));
+      saveRasterizedMaps(params_.path.substr(0, params_.path.size()-4));
     } else {
       ROS_INFO_STREAM("No cache found, loading raster map");
-      loadRasterizedMaps(path);
+      loadRasterizedMaps(params_.path);
     }
 
     for (size_t i=0; i<2; i++) {
@@ -97,7 +88,7 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
     computeDists(geo_maps_);
     ROS_INFO_STREAM("Rasterization complete");
 
-    saveCachedMaps(path);
+    saveCachedMaps(params_.path);
   }
   have_map_ = true;
 }
@@ -105,11 +96,11 @@ TopDownMap::TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, in
 void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center) {
   map_center_ = map_center;
   class_maps_.clear();
-  for (size_t i=0; i<num_classes_; i++) {
+  for (size_t i=0; i<params_.num_classes; i++) {
     //0 inside obstacles, 1 elsewhere
     Eigen::ArrayXXf class_map =
-      Eigen::ArrayXXf::Constant(static_cast<int>(map.size().height/resolution_), 
-                                static_cast<int>(map.size().width/resolution_), 1.0); 
+      Eigen::ArrayXXf::Constant(static_cast<int>(map.size().height/params_.resolution), 
+                                static_cast<int>(map.size().width/params_.resolution), 1.0); 
     class_maps_.push_back(class_map);
   }
 
@@ -117,16 +108,16 @@ void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center
   geo_maps_.clear();
   for (size_t i=0; i<2; i++) {
     Eigen::ArrayXXf geo_map =
-      Eigen::ArrayXXf::Constant(static_cast<int>(map.size().height/resolution_), 
-                                static_cast<int>(map.size().width/resolution_), 1.0); 
+      Eigen::ArrayXXf::Constant(static_cast<int>(map.size().height/params_.resolution), 
+                                static_cast<int>(map.size().width/params_.resolution), 1.0); 
     geo_maps_.push_back(geo_map);
   }
 
   bool have_road_cells = false;
   for (size_t xi=0; xi<class_maps_[0].cols(); xi++) {
     for (size_t yi=0; yi<class_maps_[0].rows(); yi++) {
-      int cls = flatten_lut_[map.at<cv::Vec3b>(std::max<int>(map.size().height-yi*resolution_-1, 0), 
-                                               std::min<int>(xi*resolution_, map.size().width-1))[0]]-1;
+      int cls = params_.flatten_lut[map.at<cv::Vec3b>(std::max<int>(map.size().height-yi*params_.resolution-1, 0), 
+                                               std::min<int>(xi*params_.resolution, map.size().width-1))[0]]-1;
       if (cls >= 0 && cls < class_maps_.size()) {
         class_maps_[cls](yi, xi) = 0;
         if (cls == 1) {
@@ -145,9 +136,9 @@ void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center
 }
 
 void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes) {
-  Eigen::Vector2i center = (center_ind.cast<float>() / resolution_).cast<int>();
+  Eigen::Vector2i center = (center_ind.cast<float>() / params_.resolution).cast<int>();
   classes.clear();
-  for (int cls=0; cls<num_classes_; cls++) {
+  for (int cls=0; cls<params_.num_classes; cls++) {
     if (center[0] < class_maps_[cls].cols() && center[1] < class_maps_[cls].rows() &&
         center[0] >= 0 && center[1] >= 0) {
       if (class_maps_[cls](center[1], center[0]) < 1) {
@@ -158,12 +149,12 @@ void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vecto
 }
 
 void TopDownMap::getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes) {
-  Eigen::Vector2i center_ind = (center/resolution_).cast<int>();
+  Eigen::Vector2i center_ind = (center/params_.resolution).cast<int>();
   getClassesAtPoint(center_ind, classes);
 }
 
 int TopDownMap::numClasses() const {
-  return num_classes_;
+  return params_.num_classes;
 }
 
 Eigen::Vector2i TopDownMap::size() const {
@@ -175,7 +166,7 @@ Eigen::Vector2i TopDownMap::mapCenter() const {
 }
 
 float TopDownMap::resolution() const {
-  return resolution_;
+  return params_.resolution;
 }
 
 bool TopDownMap::haveMap() const {
@@ -198,7 +189,7 @@ void TopDownMap::saveRasterizedMaps(const std::string &path) {
 
 void TopDownMap::loadRasterizedMaps(const std::string &path) {
   cv::Mat cv_map, cv_map_float;
-  for (size_t i=0; i<num_classes_; i++) {
+  for (size_t i=0; i<params_.num_classes; i++) {
     cv_map = cv::imread(path+"/class"+std::to_string(i)+".png", cv::IMREAD_GRAYSCALE);
     cv_map.convertTo(cv_map_float, CV_32FC1, 1./255);
     Eigen::MatrixXf mat_map;
@@ -218,17 +209,17 @@ bool TopDownMap::loadCacheMetaData(const std::string &path) {
   std::getline(data_file, line);
   if (line != path) return false;
   std::getline(data_file, line);
-  if (std::stoi(line) != num_classes_) return false;
+  if (std::stoi(line) != params_.num_classes) return false;
   std::getline(data_file, line);
-  if (std::stoi(line) != num_exclusive_classes_) return false;
+  if (std::stoi(line) != params_.num_exclusive_classes) return false;
   std::getline(data_file, line);
-  if (std::abs(std::stof(line) - resolution_) > 0.01) return false;
+  if (std::abs(std::stof(line) - params_.resolution) > 0.01) return false;
 
   return true;
 }
 
 void TopDownMap::loadCachedMaps() {
-  for (int cls=0; cls<num_classes_; cls++) {
+  for (int cls=0; cls<params_.num_classes; cls++) {
     Eigen::ArrayXXf class_map;
     std::string name = std::string(getenv("HOME")) + "/.ros/class_map" + std::to_string(cls) + ".eig";
     read_binary(name, class_map);
@@ -247,11 +238,11 @@ void TopDownMap::saveCachedMaps(const std::string &path) {
   std::ofstream data_file(std::string(getenv("HOME")) + "/.ros/cached_data.txt", 
                           std::ofstream::out | std::ofstream::trunc);
   data_file << path << std::endl;
-  data_file << num_classes_ << std::endl;
-  data_file << num_exclusive_classes_ << std::endl;
-  data_file << resolution_ << std::endl;
+  data_file << params_.num_classes << std::endl;
+  data_file << params_.num_exclusive_classes << std::endl;
+  data_file << params_.resolution << std::endl;
 
-  for (int cls=0; cls<num_classes_; cls++) {
+  for (int cls=0; cls<params_.num_classes; cls++) {
     std::string name = std::string(getenv("HOME")) + "/.ros/class_map" + std::to_string(cls) + ".eig";
     write_binary(name, class_maps_[cls]);
   }
@@ -287,11 +278,11 @@ void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
 
     cv::distanceTransform(binary_class_mat, dist_mat, cv::DIST_L2, cv::DIST_MASK_PRECISE);
     //Normalize by map res and thresh
-    dist_mat *= resolution_;
+    dist_mat *= params_.resolution;
     cv::threshold(dist_mat, dist_mat, 50, 0, cv::THRESH_TRUNC);
 
     cv::threshold(mask_mat, mask_mat, classes.size()-1, 255, cv::THRESH_BINARY);
-    dist_mat.setTo(out_of_bounds_const_, mask_mat); 
+    dist_mat.setTo(params_.out_of_bounds_const, mask_mat); 
 
     ROS_INFO_STREAM("class " << cls_id << " complete");
   }
@@ -326,8 +317,8 @@ void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::
   }
 
   //Only one ground type per cell
-  for (int under_cls_id=0; under_cls_id<num_exclusive_classes_; under_cls_id++) {
-    for (int cls_id=under_cls_id+1; cls_id<num_exclusive_classes_; cls_id++) {
+  for (int under_cls_id=0; under_cls_id<params_.num_exclusive_classes; under_cls_id++) {
+    for (int cls_id=under_cls_id+1; cls_id<params_.num_exclusive_classes; cls_id++) {
       classes[under_cls_id] += 1-classes[cls_id];
     }
     classes[under_cls_id] = classes[under_cls_id].cwiseMin(1);
@@ -375,7 +366,7 @@ void TopDownMap::getGeoRasterMap(std::vector<Eigen::ArrayXXf> &geo_cls) {
     geo_cls[i].setZero();
   }
 
-  for (int i=3; i<num_classes_; i++) {
+  for (int i=3; i<params_.num_classes; i++) {
     geo_cls[1] += 1-class_maps_[i]; //geometric classes
   }
 
@@ -390,7 +381,7 @@ void TopDownMap::getGeoRasterMap(std::vector<Eigen::ArrayXXf> &geo_cls) {
 void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
   if (dists.size() < 1) return;
   Eigen::Array2Xf pts(2, dists[0].rows()*dists[0].cols());
-  samplePts(center/resolution_, rot, pts, dists[0].cols(), dists[0].rows(), res/resolution_);
+  samplePts(center/params_.resolution, rot, pts, dists[0].cols(), dists[0].rows(), res/params_.resolution);
 
   //Generate list of indices
   Eigen::Array2Xi pts_int = pts.round().cast<int>();
@@ -401,7 +392,7 @@ void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::
           pts_int(1, idx) >= 0 && pts_int(1, idx) < class_maps_[cls].cols()) {
         dists[cls](idx) = class_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = out_of_bounds_const_;
+        dists[cls](idx) = params_.out_of_bounds_const;
       }
     }
   }
@@ -410,7 +401,7 @@ void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::
 void TopDownMap::getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
   if (dists.size() < 1) return;
   Eigen::Array2Xf pts(2, dists[0].rows()*dists[0].cols());
-  samplePts(center/resolution_, rot, pts, dists[0].cols(), dists[0].rows(), res/resolution_);
+  samplePts(center/params_.resolution, rot, pts, dists[0].cols(), dists[0].rows(), res/params_.resolution);
 
   //Generate list of indices
   Eigen::Array2Xi pts_int = pts.round().cast<int>();
@@ -421,7 +412,7 @@ void TopDownMap::getLocalGeoMap(Eigen::Vector2f center, float rot, float res, st
           pts_int(1, idx) >= 0 && pts_int(1, idx) < geo_maps_[cls].cols()) {
         dists[cls](idx) = geo_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = out_of_bounds_const_;
+        dists[cls](idx) = params_.out_of_bounds_const;
       }
     }
   }
