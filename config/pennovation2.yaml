@@ -8,3 +8,5 @@ svg_origin_y: 0
 init_pos_px_x: 1100
 init_pos_px_y: 900
 init_pos_px_cov: 20
+init_pos_deg_theta: 160
+init_pos_deg_cov: 5
