@@ -12,6 +12,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include "semantics_manager/semantic_color_lut.h"
 #define NANOSVG_CPLUSPLUS
 #include "top_down_render/nanosvg.h"
 
@@ -52,18 +53,14 @@ class TopDownMap {
   public:
     struct Params {
       std::string path = ""; // Only needed if static map
-      cv::Mat color_lut; // Only needed if static map
+      SemanticColorLut color_lut; // Only needed if static map
       Eigen::VectorXi flatten_lut; // Only needed if dynamic map
       int num_classes;
-      int num_exclusive_classes;
+      std::vector<int> exclusive_classes;
       float resolution = 1;
       float out_of_bounds_const = 5;
     };
     TopDownMap(const Params& params);
-    TopDownMap(cv::Mat& color_lut, int num_classes, int num_ex, float res, 
-               const Eigen::VectorXi &flatten_lut, float oobc=5);
-    TopDownMap(std::string path, cv::Mat& color_lut, int num_classes, int num_ex, float res, 
-               float oobc=5);
 
     void updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center);
     void getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes);

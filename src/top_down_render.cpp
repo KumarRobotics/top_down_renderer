@@ -1,4 +1,5 @@
 #include "top_down_render/top_down_render.h"
+#include <yaml-cpp/yaml.h>
 
 TopDownRender::TopDownRender(ros::NodeHandle &nh) {
   nh_ = nh;
@@ -42,43 +43,11 @@ void TopDownRender::initialize() {
   geo_scan_pub_ = it_->advertise("geo_scan", 1);
   debug_pub_ = it_->advertise("debug", 1);
 
-  //This order determines priority as well
-  color_lut_ = cv::Mat::ones(256, 1, CV_8UC3)*255;
-  color_lut_.at<cv::Vec3b>(0) = cv::Vec3b(255,255,255); //unlabeled
-  color_lut_.at<cv::Vec3b>(1) = cv::Vec3b(0,100,0);     //terrain
-  color_lut_.at<cv::Vec3b>(2) = cv::Vec3b(255,0,0);     //road
-  color_lut_.at<cv::Vec3b>(3) = cv::Vec3b(100,100,0);   //dirt
-  color_lut_.at<cv::Vec3b>(4) = cv::Vec3b(0,0,255);     //building
-  color_lut_.at<cv::Vec3b>(5) = cv::Vec3b(0,255,0);     //veg
-  color_lut_.at<cv::Vec3b>(6) = cv::Vec3b(255,255,0);   //car
+  auto top_down_map_params = loadMapParams();;
 
-  //Handle inputs
-  flatten_lut_ = Eigen::VectorXi::Zero(256);
-  /*
-  flatten_lut_[100] = 2; //road
-  flatten_lut_[101] = 3; //dirt
-  flatten_lut_[102] = 1; //grass
-  flatten_lut_[2] = 4;   //building
-  flatten_lut_[3] = 4;   //wall
-
-  flatten_lut_[7] = 5;   //vegetation
-  flatten_lut_[8] = 1;   //terrain
-  flatten_lut_[13] = 2;  //car
-  flatten_lut_[14] = 2;  //truck
-  flatten_lut_[15] = 2;  //bus
-  */
-  flatten_lut_[0] = 2;   //road
-  flatten_lut_[1] = 5;   //veg
-  flatten_lut_[2] = 4;   //building
-  flatten_lut_[3] = 1;   //terrain
-  flatten_lut_[4] = 2;   //car
-  flatten_lut_[6] = 3;   //dirt/gravel
-
-  float svg_res = -1;
-  float raster_res = 1;
-  nh_.getParam("raster_res", raster_res);
+  float map_res = -1;
   bool estimate_scale = true;
-  if (nh_.getParam("svg_res", svg_res)) {
+  if (nh_.getParam("map_res", map_res)) {
     estimate_scale = false; 
   }
 
@@ -92,7 +61,7 @@ void TopDownRender::initialize() {
   nh_.param<float>("filter_theta_cov", filter_params.theta_cov, M_PI/100);
   nh_.param<float>("filter_regularization", filter_params.regularization, 0.15);
   if (!estimate_scale) {
-    filter_params.fixed_scale = svg_res;
+    filter_params.fixed_scale = map_res;
   } else {
     filter_params.fixed_scale = -1;
   }
@@ -115,10 +84,6 @@ void TopDownRender::initialize() {
   int particle_count;
   nh_.param<int>("particle_count", particle_count, 20000);
 
-  float out_of_bounds_const;
-  nh_.param<float>("out_of_bounds_const", out_of_bounds_const, 5);
-
-
   //DEBUG FOR VISUALIZATION
   //ros::Rate rate(1);
   //TopDownMap *cart_map = new TopDownMap(map_path, color_lut_, 6, 6, raster_res);
@@ -137,7 +102,7 @@ void TopDownRender::initialize() {
   //END DEBUG
 
   if (live_map) {
-    map_ = new TopDownMapPolar(color_lut_, 6, 6, raster_res, flatten_lut_, out_of_bounds_const);
+    map_ = new TopDownMapPolar(top_down_map_params);
   } else {
     ROS_INFO_STREAM("Loading map from file");
     std::string map_path;
@@ -155,9 +120,9 @@ void TopDownRender::initialize() {
     map_pub_.publish(img_msg);
 
     if (use_raster) {
-      map_ = new TopDownMapPolar(map_path, color_lut_, 6, 6, raster_res);
+      map_ = new TopDownMapPolar(top_down_map_params);
     } else {
-      map_ = new TopDownMapPolar(map_path+".svg", color_lut_, 6, 6, raster_res);
+      map_ = new TopDownMapPolar(top_down_map_params);
     }
   }
   map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
@@ -169,6 +134,51 @@ void TopDownRender::initialize() {
   tf2_broadcaster_ = new tf2_ros::TransformBroadcaster(); 
 
   ROS_INFO_STREAM("Setup complete");
+}
+
+TopDownMap::Params TopDownRender::loadMapParams() {
+  TopDownMap::Params map_params;
+  nh_.getParam("world_config_path", map_params.path);
+
+  // Initialize things
+  color_lut_ = cv::Mat::ones(256, 1, CV_8UC3)*255;
+  flatten_lut_ = Eigen::VectorXi::Zero(256);
+
+  const YAML::Node map_params_file = YAML::LoadFile(map_params.path);
+  // First pass to build class lookup dict
+  int map_class_ind = 0;
+  std::map<std::string, int> class_name_map;
+  for (const auto& map_class : map_params_file) {
+    // Classes not remapped are the ones we are going to end up with
+    if (!map_class["remap"]) {
+      class_name_map.emplace(map_class["name"].as<std::string>(), map_class_ind);
+      if (map_class["exclusive"].as<bool>()) {
+        map_params.exclusive_classes.push_back(map_class_ind);
+      }
+      ++map_class_ind;
+    }
+  }
+  map_params.num_classes = map_class_ind;
+
+  map_class_ind = 0;
+  for (const auto& map_class : map_params_file) {
+    auto color = map_class["color"];
+    if (map_class["remap"]) {
+      // remap stuff
+      auto remap_class = class_name_map.find(map_class["remap"].as<std::string>());
+      if (remap_class != class_name_map.end()) {
+        flatten_lut_[map_class_ind] = remap_class->second + 1;
+      }
+    } else {
+      flatten_lut_[map_class_ind] = map_class_ind + 1;
+    }
+    ++map_class_ind;
+  }
+
+  map_params.color_lut = SemanticColorLut(map_params.path);
+  nh_.param<float>("out_of_bounds_const", map_params.out_of_bounds_const, 5);
+
+  return map_params;
 }
 
 void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header) {

@@ -32,8 +32,7 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
 
       for (size_t cls=1; cls<=params_.num_classes; cls++) {
         std::vector<std::vector<Eigen::Vector2f>> class_poly;
-        cv::Vec3b color = params_.color_lut.at<cv::Vec3b>(cls);
-        int color_compressed = color[0] << 16 | color[1] << 8 | color[2];
+        int color_compressed = params_.color_lut.ind2Color(cls);
 
         //iterate through shapes
         for (NSVGshape *shape = map->shapes; shape != NULL; shape = shape->next) {
@@ -211,8 +210,6 @@ bool TopDownMap::loadCacheMetaData(const std::string &path) {
   std::getline(data_file, line);
   if (std::stoi(line) != params_.num_classes) return false;
   std::getline(data_file, line);
-  if (std::stoi(line) != params_.num_exclusive_classes) return false;
-  std::getline(data_file, line);
   if (std::abs(std::stof(line) - params_.resolution) > 0.01) return false;
 
   return true;
@@ -239,7 +236,6 @@ void TopDownMap::saveCachedMaps(const std::string &path) {
                           std::ofstream::out | std::ofstream::trunc);
   data_file << path << std::endl;
   data_file << params_.num_classes << std::endl;
-  data_file << params_.num_exclusive_classes << std::endl;
   data_file << params_.resolution << std::endl;
 
   for (int cls=0; cls<params_.num_classes; cls++) {
@@ -317,9 +313,11 @@ void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::
   }
 
   //Only one ground type per cell
-  for (int under_cls_id=0; under_cls_id<params_.num_exclusive_classes; under_cls_id++) {
-    for (int cls_id=under_cls_id+1; cls_id<params_.num_exclusive_classes; cls_id++) {
-      classes[under_cls_id] += 1-classes[cls_id];
+  for (int under_cls_id : params_.exclusive_classes) {
+    for (int cls_id : params_.exclusive_classes) {
+      if (under_cls_id < cls_id) {
+        classes[under_cls_id] += 1-classes[cls_id];
+      }
     }
     classes[under_cls_id] = classes[under_cls_id].cwiseMin(1);
   }
