@@ -1,4 +1,5 @@
 #include "top_down_render/top_down_render.h"
+#include "semantics_manager/semantics_manager.h"
 #include <yaml-cpp/yaml.h>
 
 TopDownRender::TopDownRender(ros::NodeHandle &nh) {
@@ -43,7 +44,11 @@ void TopDownRender::initialize() {
   geo_scan_pub_ = it_->advertise("geo_scan", 1);
   debug_pub_ = it_->advertise("debug", 1);
 
-  auto top_down_map_params = loadMapParams();;
+  std::string world_config_path;
+  nh_.getParam("world_config_path", world_config_path);
+
+  auto top_down_map_params = loadClassParams(
+      semantics_manager::getClassesPath(world_config_path));
 
   float map_res = -1;
   bool estimate_scale = true;
@@ -101,12 +106,10 @@ void TopDownRender::initialize() {
   //}
   //END DEBUG
 
-  if (live_map) {
-    map_ = new TopDownMapPolar(top_down_map_params);
-  } else {
+  map_ = new TopDownMapPolar(top_down_map_params);
+
+  if (!live_map) {
     ROS_INFO_STREAM("Loading map from file");
-    std::string map_path;
-    nh_.getParam("map_path", map_path);
     nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
     background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
 
@@ -118,12 +121,6 @@ void TopDownRender::initialize() {
     sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), 
         "bgr8", background_copy_small).toImageMsg();
     map_pub_.publish(img_msg);
-
-    if (use_raster) {
-      map_ = new TopDownMapPolar(top_down_map_params);
-    } else {
-      map_ = new TopDownMapPolar(top_down_map_params);
-    }
   }
   map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
@@ -136,47 +133,9 @@ void TopDownRender::initialize() {
   ROS_INFO_STREAM("Setup complete");
 }
 
-TopDownMap::Params TopDownRender::loadMapParams() {
+TopDownMap::Params TopDownRender::loadClassParams(const std::string& class_path) {
   TopDownMap::Params map_params;
-  nh_.getParam("world_config_path", map_params.path);
 
-  // Initialize things
-  color_lut_ = cv::Mat::ones(256, 1, CV_8UC3)*255;
-  flatten_lut_ = Eigen::VectorXi::Zero(256);
-
-  const YAML::Node map_params_file = YAML::LoadFile(map_params.path);
-  // First pass to build class lookup dict
-  int map_class_ind = 0;
-  std::map<std::string, int> class_name_map;
-  for (const auto& map_class : map_params_file) {
-    // Classes not remapped are the ones we are going to end up with
-    if (!map_class["remap"]) {
-      class_name_map.emplace(map_class["name"].as<std::string>(), map_class_ind);
-      if (map_class["exclusive"].as<bool>()) {
-        map_params.exclusive_classes.push_back(map_class_ind);
-      }
-      ++map_class_ind;
-    }
-  }
-  map_params.num_classes = map_class_ind;
-
-  map_class_ind = 0;
-  for (const auto& map_class : map_params_file) {
-    auto color = map_class["color"];
-    if (map_class["remap"]) {
-      // remap stuff
-      auto remap_class = class_name_map.find(map_class["remap"].as<std::string>());
-      if (remap_class != class_name_map.end()) {
-        flatten_lut_[map_class_ind] = remap_class->second + 1;
-      }
-    } else {
-      flatten_lut_[map_class_ind] = map_class_ind + 1;
-    }
-    ++map_class_ind;
-  }
-
-  map_params.color_lut = SemanticColorLut(map_params.path);
-  nh_.param<float>("out_of_bounds_const", map_params.out_of_bounds_const, 5);
 
   return map_params;
 }
