@@ -81,9 +81,9 @@ class TopDownMap {
     bool have_map_;
     Eigen::Vector2i map_center_;
 
-    void saveRasterizedMaps(const std::string &path);
-    void loadRasterizedMaps(const std::string &path);
-    bool loadCacheMetaData(const std::string &path);
+    void saveRasterizedMaps(const std::string &map_path);
+    void loadRasterizedMaps(const std::string &map_path);
+    bool loadCacheMetaData(const std::string &map_path);
     void loadCachedMaps();
     void saveCachedMaps(const std::string &path);
     void getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes);

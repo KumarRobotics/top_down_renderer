@@ -16,9 +16,9 @@
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <remap from="~/map_image" to="/titan/asoom/map_sem_img"/>
     <remap from="~/map_loc" to="/titan/asoom/map_sem_img_center"/>
-    <param name="raster_res" value="1"/>
     <param name="particle_count" value="300"/>
 
+    <param name="world_config_path" value="$(find semantics_manager)/config/config.yaml"/>
     <rosparam command="load" subst_value="True" file="$(find top_down_render)/config/pennovation2.yaml"/>
 
     <param name="use_motion_prior" value="True"/>

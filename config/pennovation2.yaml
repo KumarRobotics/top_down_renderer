@@ -1,8 +1,3 @@
-map_path: "$(find top_down_render)/maps/pennovation2"
-live_map: False
-estimate_scale: False
-use_raster: False
-svg_res: 5.07
 svg_origin_x: 0
 svg_origin_y: 0
 init_pos_px_x: 1100

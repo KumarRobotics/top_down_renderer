@@ -1,3 +1,4 @@
+#include <filesystem>
 #include "top_down_render/top_down_map.h"
 
 //For some reason the implementation is in a separate #ifdef
@@ -69,7 +70,7 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
       ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
       getRasterMap(Eigen::Vector2f(map->width/2, map->height/2), 0, params_.resolution, class_maps_);
 
-      saveRasterizedMaps(params_.map_path.substr(0, params_.map_path.size()-4));
+      saveRasterizedMaps(params_.map_path.substr(0, params_.map_path.size()-4) + "_raster_cache");
     } else {
       ROS_INFO_STREAM("No cache found, loading raster map");
       loadRasterizedMaps(params_.map_path);
@@ -186,10 +187,10 @@ void TopDownMap::saveRasterizedMaps(const std::string &path) {
   }
 }
 
-void TopDownMap::loadRasterizedMaps(const std::string &path) {
+void TopDownMap::loadRasterizedMaps(const std::string &map_path) {
   cv::Mat cv_map, cv_map_float;
   for (size_t i=0; i<params_.num_classes; i++) {
-    cv_map = cv::imread(path+"/class"+std::to_string(i)+".png", cv::IMREAD_GRAYSCALE);
+    cv_map = cv::imread(map_path+"/class"+std::to_string(i)+".png", cv::IMREAD_GRAYSCALE);
     cv_map.convertTo(cv_map_float, CV_32FC1, 1./255);
     Eigen::MatrixXf mat_map;
     cv::cv2eigen(cv_map_float, mat_map);
@@ -197,8 +198,8 @@ void TopDownMap::loadRasterizedMaps(const std::string &path) {
   }
 }
 
-bool TopDownMap::loadCacheMetaData(const std::string &path) {
-  std::ifstream data_file(std::string(getenv("HOME")) + "/.ros/cached_data.txt");
+bool TopDownMap::loadCacheMetaData(const std::string &map_path) {
+  std::ifstream data_file(std::string(getenv("HOME")) + "/.ros/xview_cache/cached_data.txt");
   if (!data_file) return false;
 
   ROS_INFO_STREAM("Found cache, checking if parameters have changed");
@@ -206,7 +207,7 @@ bool TopDownMap::loadCacheMetaData(const std::string &path) {
   //Check that metadata agrees
   std::string line;
   std::getline(data_file, line);
-  if (line != path) return false;
+  if (line != map_path) return false;
   std::getline(data_file, line);
   if (std::stoi(line) != params_.num_classes) return false;
   std::getline(data_file, line);
@@ -218,33 +219,37 @@ bool TopDownMap::loadCacheMetaData(const std::string &path) {
 void TopDownMap::loadCachedMaps() {
   for (int cls=0; cls<params_.num_classes; cls++) {
     Eigen::ArrayXXf class_map;
-    std::string name = std::string(getenv("HOME")) + "/.ros/class_map" + std::to_string(cls) + ".eig";
+    std::string name = std::string(getenv("HOME")) + "/.ros/xview_cache/class_map" + std::to_string(cls) + ".eig";
     read_binary(name, class_map);
     class_maps_.push_back(class_map);
   }
 
   for (int cls=0; cls<2; cls++) {
     Eigen::ArrayXXf geo_map;
-    std::string name = std::string(getenv("HOME")) + "/.ros/geo_map" + std::to_string(cls) + ".eig";
+    std::string name = std::string(getenv("HOME")) + "/.ros/xview_cache/geo_map" + std::to_string(cls) + ".eig";
     read_binary(name, geo_map);
     geo_maps_.push_back(geo_map);
   }
 }
 
-void TopDownMap::saveCachedMaps(const std::string &path) {
-  std::ofstream data_file(std::string(getenv("HOME")) + "/.ros/cached_data.txt", 
+void TopDownMap::saveCachedMaps(const std::string &map_path) {
+  using namespace std::filesystem;
+  path cache = path(getenv("HOME")) / path(".ros/xview_cache/cached_data.txt");
+  create_directory(cache.parent_path());
+
+  std::ofstream data_file(cache, 
                           std::ofstream::out | std::ofstream::trunc);
-  data_file << path << std::endl;
+  data_file << map_path << std::endl;
   data_file << params_.num_classes << std::endl;
   data_file << params_.resolution << std::endl;
 
   for (int cls=0; cls<params_.num_classes; cls++) {
-    std::string name = std::string(getenv("HOME")) + "/.ros/class_map" + std::to_string(cls) + ".eig";
+    std::string name = std::string(getenv("HOME")) + "/.ros/xview_cache/class_map" + std::to_string(cls) + ".eig";
     write_binary(name, class_maps_[cls]);
   }
 
   for (int cls=0; cls<2; cls++) {
-    std::string name = std::string(getenv("HOME")) + "/.ros/geo_map" + std::to_string(cls) + ".eig";
+    std::string name = std::string(getenv("HOME")) + "/.ros/xview_cache/geo_map" + std::to_string(cls) + ".eig";
     write_binary(name, geo_maps_[cls]);
   }
 }

@@ -21,16 +21,6 @@ void TopDownRender::initialize() {
                           geometry_msgs::PoseStamped::ConstPtr()));
   }
 
-  bool live_map = false;
-  nh_.param<bool>("live_map", live_map, false);
-  if (live_map) {
-    ROS_INFO_STREAM("Using live map");
-    map_image_sub_ = nh_.subscribe<sensor_msgs::Image>("map_image", 1,
-        &TopDownRender::mapImageCallback, this);
-    map_loc_sub_ = nh_.subscribe<geometry_msgs::PointStamped>("map_loc", 50,
-        &TopDownRender::mapLocCallback, this);
-  }
-
   gt_pose_ = Eigen::Affine2f::Identity();
   gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, 
       &TopDownRender::gtPoseCallback, this);
@@ -46,8 +36,8 @@ void TopDownRender::initialize() {
   std::string world_config_path;
   nh_.getParam("world_config_path", world_config_path);
 
-  semantics_manager::ClassConfig class_params(semantics_manager::getClassesPath(world_config_path));
   semantics_manager::MapConfig map_params(semantics_manager::getMapPath(world_config_path));
+  semantics_manager::ClassConfig class_params(semantics_manager::getClassesPath(world_config_path));
   auto top_down_map_params = getTopDownMapParams(class_params, map_params);
 
   // Deprecated, but leaving here for now
@@ -80,8 +70,13 @@ void TopDownRender::initialize() {
 
   map_ = new TopDownMapPolar(top_down_map_params);
 
-  if (!live_map) {
-    ROS_INFO_STREAM("Loading map from file");
+  if (map_params.dynamic) {
+    map_image_sub_ = nh_.subscribe<sensor_msgs::Image>("map_image", 1,
+        &TopDownRender::mapImageCallback, this);
+    map_loc_sub_ = nh_.subscribe<geometry_msgs::PointStamped>("map_loc", 50,
+        &TopDownRender::mapLocCallback, this);
+  } else {
+    // Load background map
     nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
     background_img_ = cv::imread(map_params.viz_path, cv::IMREAD_COLOR);
 
@@ -102,7 +97,14 @@ void TopDownRender::initialize() {
   //static transform broadcaster for map viz
   tf2_broadcaster_ = new tf2_ros::TransformBroadcaster(); 
 
-  ROS_INFO_STREAM("Setup complete");
+  constexpr int width = 30;
+  using namespace std;
+  ROS_INFO_STREAM("\033[32m" << "[XView]" << endl << "[ROS] ======== Configuration ========" << 
+    endl << left << 
+    setw(width) << "[ROS] world_config_path: " << world_config_path << endl <<
+    "[ROS] ===============================" << endl <<
+    setw(width) << "[ROS] particle_count: " << particle_count << endl <<
+    "[ROS] ====== End Configuration ======" << "\033[0m");
 }
 
 TopDownMap::Params TopDownRender::getTopDownMapParams(
