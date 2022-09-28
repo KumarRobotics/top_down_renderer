@@ -50,41 +50,13 @@ void TopDownRender::initialize() {
   semantics_manager::MapConfig map_params(semantics_manager::getMapPath(world_config_path));
   auto top_down_map_params = getTopDownMapParams(class_params, map_params);
 
-  float map_res = map_params.resolution;
-  bool estimate_scale = true;
-  if (map_res > 0) {
-    estimate_scale = false; 
-  }
-
+  // Deprecated, but leaving here for now
   int svg_origin_x, svg_origin_y;
   nh_.param<int>("svg_origin_x", svg_origin_x, 0);
   nh_.param<int>("svg_origin_y", svg_origin_y, 0);
 
   //Get filter parameters
-  FilterParams filter_params;
-  nh_.param<float>("filter_pos_cov", filter_params.pos_cov, 0.3);
-  nh_.param<float>("filter_theta_cov", filter_params.theta_cov, M_PI/100);
-  nh_.param<float>("filter_regularization", filter_params.regularization, 0.15);
-  if (!estimate_scale) {
-    filter_params.fixed_scale = map_res;
-  } else {
-    filter_params.fixed_scale = -1;
-  }
-
-  nh_.param<float>("conf_factor", conf_factor_, 1);
-
-  nh_.param<float>("init_pos_px_x", filter_params.init_pos_px_x, -1);
-  nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
-  nh_.param<float>("init_pos_px_cov", filter_params.init_pos_px_cov, -1);
-
-  constexpr float inf = std::numeric_limits<float>::infinity();
-  nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
-  nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
-  nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
-  nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
-
-  bool use_raster;
-  nh_.param<bool>("use_raster", use_raster, false);
+  auto filter_params = getFilterParams(map_params);
 
   int particle_count;
   nh_.param<int>("particle_count", particle_count, 20000);
@@ -163,6 +135,29 @@ TopDownMap::Params TopDownRender::getTopDownMapParams(
   nh_.param<float>("out_of_bounds_const", params.out_of_bounds_const);
 
   return params;
+}
+
+FilterParams TopDownRender::getFilterParams(const semantics_manager::MapConfig& map_params) {
+  FilterParams filter_params;
+
+  nh_.param<float>("filter_pos_cov", filter_params.pos_cov, 0.3);
+  nh_.param<float>("filter_theta_cov", filter_params.theta_cov, M_PI/100);
+  nh_.param<float>("filter_regularization", filter_params.regularization, 0.15);
+  filter_params.fixed_scale = map_params.resolution;
+
+  nh_.param<float>("conf_factor", conf_factor_, 1);
+
+  nh_.param<float>("init_pos_px_x", filter_params.init_pos_px_x, -1);
+  nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
+  nh_.param<float>("init_pos_px_cov", filter_params.init_pos_px_cov, -1);
+
+  constexpr float inf = std::numeric_limits<float>::infinity();
+  nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
+  nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
+  nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
+  nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
+
+  return filter_params;
 }
 
 void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header) {

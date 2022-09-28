@@ -78,6 +78,7 @@ class TopDownRender {
     TopDownMap::Params getTopDownMapParams(
         const semantics_manager::ClassConfig& class_params,
         const semantics_manager::MapConfig& map_params);
+    FilterParams getFilterParams(const semantics_manager::MapConfig& map_params);
 
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
