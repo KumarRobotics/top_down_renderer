@@ -46,7 +46,7 @@ void TopDownRender::initialize() {
   nh_.param<int>("svg_origin_y", svg_origin_y, 0);
 
   //Get filter parameters
-  auto filter_params = getFilterParams(map_params);
+  auto filter_params = getFilterParams(class_params, map_params);
 
   int particle_count;
   nh_.param<int>("particle_count", particle_count, 20000);
@@ -104,6 +104,7 @@ void TopDownRender::initialize() {
     setw(width) << "[ROS] world_config_path: " << world_config_path << endl <<
     "[ROS] ===============================" << endl <<
     setw(width) << "[ROS] particle_count: " << particle_count << endl <<
+    setw(width) << "[ROS] filter_pos_cov: " << filter_params.pos_cov << endl <<
     "[ROS] ====== End Configuration ======" << "\033[0m");
 }
 
@@ -139,7 +140,9 @@ TopDownMap::Params TopDownRender::getTopDownMapParams(
   return params;
 }
 
-FilterParams TopDownRender::getFilterParams(const semantics_manager::MapConfig& map_params) {
+FilterParams TopDownRender::getFilterParams(
+    const semantics_manager::ClassConfig& class_params,
+    const semantics_manager::MapConfig& map_params) {
   FilterParams filter_params;
 
   nh_.param<float>("filter_pos_cov", filter_params.pos_cov, 0.3);
@@ -158,6 +161,11 @@ FilterParams TopDownRender::getFilterParams(const semantics_manager::MapConfig& 
   nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
   nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
   nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
+
+  int flattened_id = 0;
+  for (int class_id : class_params.flattened_to_class) {
+    filter_params.class_weights.push_back(class_params.loc_weight[class_id]);
+  }
 
   return filter_params;
 }

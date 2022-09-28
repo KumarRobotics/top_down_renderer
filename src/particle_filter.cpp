@@ -55,9 +55,9 @@ void ParticleFilter::initializeParticles() {
   //Weights should be even
   ROS_INFO_STREAM("Initializing particles...");
   for (int i=0; i<max_num_particles_/num_at_scale; i++) {
-    StateParticle proto_part(gen_, map_, params_);
+    StateParticle proto_part(gen_, map_, &params_);
     for (float scale=0; scale<1; scale+=1./num_at_scale) {
-      std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, map_, params_);
+      std::shared_ptr<StateParticle> particle = std::make_shared<StateParticle>(gen_, map_, &params_);
       if (params_.fixed_scale < 0) {
         particle->setState(proto_part.state());
         particle->setScale(std::pow(10., scale));
@@ -65,7 +65,7 @@ void ParticleFilter::initializeParticles() {
       particles_.push_back(particle);
 
       //Allocate memory for new array too, then we can swap back and forth without allocating
-      std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, map_, params_);
+      std::shared_ptr<StateParticle> new_particle = std::make_shared<StateParticle>(gen_, map_, &params_);
       new_particles_.push_back(new_particle);
     }
   }
@@ -144,7 +144,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   } else {
     ROS_DEBUG_STREAM("current size: " << new_particles_.size());
     while (new_particles_.size() < num_particles_) {
-      new_particles_.push_back(std::make_shared<StateParticle>(gen_, map_, params_, false));
+      new_particles_.push_back(std::make_shared<StateParticle>(gen_, map_, &params_, false));
     }
     ROS_DEBUG("Created new particles");
   }

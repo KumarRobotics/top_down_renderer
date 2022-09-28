@@ -29,11 +29,13 @@ typedef struct FilterParams {
   float init_pos_m_y = -1;
   float init_pos_deg_theta = -1;
   float init_pos_deg_cov = -1;
+
+  std::vector<float> class_weights;
 } FilterParams;
 
 class StateParticle {
   public:
-    StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams &params, bool init=true);
+    StateParticle(std::mt19937 *gen, TopDownMapPolar *map, FilterParams *params, bool init=true);
     
     void propagate(Eigen::Vector2f &trans, float omega, bool scale_freeze=false);
     State state() const;
@@ -55,8 +57,7 @@ class StateParticle {
     TopDownMapPolar *map_;
     std::mt19937 *gen_;
 
-    FilterParams params_;
-    std::vector<float> class_weights_;
+    FilterParams *params_;
 
     float getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
                         std::vector<Eigen::ArrayXXf> &top_down_geo,
