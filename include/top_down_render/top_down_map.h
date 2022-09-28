@@ -52,9 +52,9 @@ void read_binary(std::string &filename, Matrix& matrix){
 class TopDownMap {
   public:
     struct Params {
-      std::string class_path = ""; // Only needed if static map
+      std::string map_path = ""; // Only needed if static map
       SemanticColorLut color_lut; // Only needed if static map
-      Eigen::VectorXi flatten_lut; // Only needed if dynamic map
+      std::vector<int> flatten_lut; // Only needed if dynamic map
       int num_classes;
       std::vector<int> exclusive_classes;
       float resolution = 1;

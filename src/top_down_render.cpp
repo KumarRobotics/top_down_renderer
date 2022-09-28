@@ -1,5 +1,4 @@
 #include "top_down_render/top_down_render.h"
-#include "semantics_manager/semantics_manager.h"
 #include <yaml-cpp/yaml.h>
 
 TopDownRender::TopDownRender(ros::NodeHandle &nh) {
@@ -47,12 +46,13 @@ void TopDownRender::initialize() {
   std::string world_config_path;
   nh_.getParam("world_config_path", world_config_path);
 
-  auto top_down_map_params = loadClassParams(
-      semantics_manager::getClassesPath(world_config_path));
+  semantics_manager::ClassConfig class_params(semantics_manager::getClassesPath(world_config_path));
+  semantics_manager::MapConfig map_params(semantics_manager::getMapPath(world_config_path));
+  auto top_down_map_params = getTopDownMapParams(class_params, map_params);
 
-  float map_res = -1;
+  float map_res = map_params.resolution;
   bool estimate_scale = true;
-  if (nh_.getParam("map_res", map_res)) {
+  if (map_res > 0) {
     estimate_scale = false; 
   }
 
@@ -111,7 +111,7 @@ void TopDownRender::initialize() {
   if (!live_map) {
     ROS_INFO_STREAM("Loading map from file");
     nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
-    background_img_ = cv::imread(map_path+".png", cv::IMREAD_COLOR);
+    background_img_ = cv::imread(map_params.viz_path, cv::IMREAD_COLOR);
 
     cv::Mat background_copy_small;
     cv::resize(background_img_, background_copy_small,
@@ -133,11 +133,36 @@ void TopDownRender::initialize() {
   ROS_INFO_STREAM("Setup complete");
 }
 
-TopDownMap::Params TopDownRender::loadClassParams(const std::string& class_path) {
-  TopDownMap::Params map_params;
+TopDownMap::Params TopDownRender::getTopDownMapParams(
+    const semantics_manager::ClassConfig& class_params,
+    const semantics_manager::MapConfig& map_params) {
+  TopDownMap::Params params;
+  if (!map_params.dynamic) {
+    if (map_params.svg_path != "") {
+      params.map_path = map_params.svg_path;
+    } else {
+      params.map_path = map_params.raster_path;
+    }
+  }
 
+  params.color_lut = class_params.color_lut;
+  params.flatten_lut = class_params.class_to_flattened;
+  params.num_classes = class_params.flattened_to_class.size();
 
-  return map_params;
+  params.exclusive_classes.resize(params.num_classes);
+  int flattened_id = 0;
+  for (int class_id : class_params.flattened_to_class) {
+    if (class_params.exclusivity[class_id]) {
+      params.exclusive_classes.push_back(flattened_id);
+    }
+  }
+
+  // This is really the scale factor for the map.  Fixed to 1 pretty much always
+  // Leaving this in in case we ever want this feature for some reason.
+  params.resolution = 1;
+  nh_.param<float>("out_of_bounds_const", params.out_of_bounds_const);
+
+  return params;
 }
 
 void TopDownRender::publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header) {

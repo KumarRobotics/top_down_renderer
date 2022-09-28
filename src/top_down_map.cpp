@@ -8,22 +8,22 @@
 TopDownMap::TopDownMap(const TopDownMap::Params& params) {
   params_ = params;
   map_center_ = Eigen::Vector2i::Zero();
-  if (params_.path == "") {
+  if (params_.map_path == "") {
     // No static map case
     have_map_ = false;
     return;
   }
 
-  if (loadCacheMetaData(params_.path)) {
+  if (loadCacheMetaData(params_.map_path)) {
     loadCachedMaps();
     ROS_INFO_STREAM("Loaded cached maps");
   } else {
-    if (params_.path.substr(params_.path.size()-4) == ".svg") { 
+    if (params_.map_path.substr(params_.map_path.size()-4) == ".svg") { 
       //parse svg
       NSVGimage* map;
 
-      ROS_INFO_STREAM("Loading vector map " << params_.path);
-      map = nsvgParseFromFile(params_.path.c_str(), "px", 96);
+      ROS_INFO_STREAM("Loading vector map " << params_.map_path);
+      map = nsvgParseFromFile(params_.map_path.c_str(), "px", 96);
 
       if (map == NULL) {
         ROS_ERROR("Map loading failed");
@@ -69,10 +69,10 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
       ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
       getRasterMap(Eigen::Vector2f(map->width/2, map->height/2), 0, params_.resolution, class_maps_);
 
-      saveRasterizedMaps(params_.path.substr(0, params_.path.size()-4));
+      saveRasterizedMaps(params_.map_path.substr(0, params_.map_path.size()-4));
     } else {
       ROS_INFO_STREAM("No cache found, loading raster map");
-      loadRasterizedMaps(params_.path);
+      loadRasterizedMaps(params_.map_path);
     }
 
     for (size_t i=0; i<2; i++) {
@@ -87,7 +87,7 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
     computeDists(geo_maps_);
     ROS_INFO_STREAM("Rasterization complete");
 
-    saveCachedMaps(params_.path);
+    saveCachedMaps(params_.map_path);
   }
   have_map_ = true;
 }

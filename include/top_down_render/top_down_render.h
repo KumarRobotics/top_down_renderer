@@ -24,6 +24,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/highgui/highgui.hpp>
 
+#include "semantics_manager/semantics_manager.h"
 #include "top_down_render/point_xyz_class_normal.h"
 #include "top_down_render/top_down_map_polar.h"
 #include "top_down_render/particle_filter.h"
@@ -74,7 +75,9 @@ class TopDownRender {
     float current_res_ = 4; //m/px range
     bool is_converged_ = false;
 
-    TopDownMap::Params loadClassParams(const std::string& class_path);
+    TopDownMap::Params getTopDownMapParams(
+        const semantics_manager::ClassConfig& class_params,
+        const semantics_manager::MapConfig& map_params);
 
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
