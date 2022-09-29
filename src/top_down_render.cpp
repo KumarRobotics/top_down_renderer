@@ -102,9 +102,28 @@ void TopDownRender::initialize() {
   ROS_INFO_STREAM("\033[32m" << "[XView]" << endl << "[ROS] ======== Configuration ========" << 
     endl << left << 
     setw(width) << "[ROS] world_config_path: " << world_config_path << endl <<
+    setw(width) << "[ROS] map_path: " << 
+    (top_down_map_params.map_path == "" ? "dynamic" : top_down_map_params.map_path) << endl <<
+    setw(width) << "[ROS] map_resolution: " << filter_params.fixed_scale << endl <<
     "[ROS] ===============================" << endl <<
     setw(width) << "[ROS] particle_count: " << particle_count << endl <<
     setw(width) << "[ROS] filter_pos_cov: " << filter_params.pos_cov << endl <<
+    setw(width) << "[ROS] filter_theta_cov: " << filter_params.theta_cov << endl <<
+    setw(width) << "[ROS] filter_regularization: " << filter_params.regularization << endl <<
+    setw(width) << "[ROS] conf_factor: " << conf_factor_ << endl <<
+    setw(width) << "[ROS] out_of_bounds_const: " << top_down_map_params.out_of_bounds_const << endl <<
+    "[ROS] ===============================" << endl <<
+    setw(width) << "[ROS] init_pos_px_x: " << filter_params.init_pos_px_x << endl <<
+    setw(width) << "[ROS] init_pos_px_y: " << filter_params.init_pos_px_y << endl <<
+    setw(width) << "[ROS] init_pos_px_cov: " << filter_params.init_pos_px_cov << endl <<
+    setw(width) << "[ROS] init_pos_m_x: " << filter_params.init_pos_m_x << endl <<
+    setw(width) << "[ROS] init_pos_m_y: " << filter_params.init_pos_m_y << endl <<
+    setw(width) << "[ROS] init_pos_deg_theta: " << filter_params.init_pos_deg_theta << endl <<
+    setw(width) << "[ROS] init_pos_deg_cov: " << filter_params.init_pos_deg_cov << endl <<
+    "[ROS] ===============================" << endl <<
+    setw(width) << "[ROS] svg_origin_x: " << svg_origin_x << endl <<
+    setw(width) << "[ROS] svg_origin_y: " << svg_origin_y << endl <<
+    setw(width) << "[ROS] map_pub_scale_: " << map_pub_scale_ << endl <<
     "[ROS] ====== End Configuration ======" << "\033[0m");
 }
 
