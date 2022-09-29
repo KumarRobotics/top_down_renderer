@@ -58,8 +58,9 @@ class TopDownRender {
     Eigen::Affine2f gt_pose_;
     Eigen::Affine3f last_prior_pose_;
     cv::Point map_center_;
-    cv::Mat color_lut_;
+    SemanticColorLut color_lut_;
     Eigen::VectorXi flatten_lut_;
+    std::vector<int> unflatten_lut_;
     cv::Mat background_img_;
     TopDownMapPolar *map_;
     ParticleFilter *filter_;

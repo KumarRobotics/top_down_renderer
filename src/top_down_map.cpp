@@ -31,7 +31,8 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
         return;
       }
 
-      for (size_t cls=1; cls<=params_.num_classes; cls++) {
+      poly_.resize(params_.num_classes);
+      for (size_t cls=0; cls<params_.flatten_lut.size(); cls++) {
         std::vector<std::vector<Eigen::Vector2f>> class_poly;
         int color_compressed = params_.color_lut.ind2Color(cls);
 
@@ -53,7 +54,9 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
             }
           }
         }
-        poly_.push_back(class_poly);
+        // Append class_poly contents into the appropriate class
+        poly_[params_.flatten_lut[cls]].insert(poly_[params_.flatten_lut[cls]].end(), 
+            class_poly.begin(), class_poly.end());
       }
 
       ROS_INFO("Map loaded.");

@@ -38,6 +38,7 @@ void TopDownRender::initialize() {
 
   semantics_manager::MapConfig map_params(semantics_manager::getMapPath(world_config_path));
   semantics_manager::ClassConfig class_params(semantics_manager::getClassesPath(world_config_path));
+  color_lut_ = class_params.color_lut;
   auto top_down_map_params = getTopDownMapParams(class_params, map_params);
 
   // Deprecated, but leaving here for now
@@ -50,6 +51,15 @@ void TopDownRender::initialize() {
 
   int particle_count;
   nh_.param<int>("particle_count", particle_count, 20000);
+
+  // Convert to flatten_lut format
+  unflatten_lut_ = class_params.flattened_to_class;
+  flatten_lut_ = Eigen::VectorXi::Zero(256);
+  int map_class = 0;
+  for (auto flattened_class : class_params.class_to_flattened) {
+    flatten_lut_[map_class] = flattened_class + 1;
+    ++map_class;
+  }
 
   //DEBUG FOR VISUALIZATION
   //ros::Rate rate(1);
@@ -226,7 +236,7 @@ void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &im
       char best_cls = 0;
       float best_cls_score = -std::numeric_limits<float>::infinity();
       float worst_cls_score = std::numeric_limits<float>::infinity();
-      char cls_id = 1;
+      char cls_id = 0;
       for (auto cls : classes) {
         if (cls(idx, idy) >= best_cls_score) {
           best_cls_score = cls(idx, idy);
@@ -235,21 +245,19 @@ void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &im
         if (cls(idx, idy) < worst_cls_score) {
           worst_cls_score = cls(idx, idy);
         }
-        cls_id++;
+        ++cls_id;
       }
 
       if (best_cls_score == worst_cls_score) {
-        //All scores are the same, show white
-        map_mat.at<uint8_t>(idy, idx) = 0;
+        //All scores are the same, unknown class
+        map_mat.at<uint8_t>(idy, idx) = 255;
       } else {
-        map_mat.at<uint8_t>(idy, idx) = best_cls;
+        map_mat.at<uint8_t>(idy, idx) = unflatten_lut_[best_cls];
       }
     }
   }
 
-  cv::Mat map_multichannel;
-  cv::cvtColor(map_mat, map_multichannel, cv::COLOR_GRAY2BGR);
-  cv::LUT(map_multichannel, color_lut_, img);
+  color_lut_.ind2Color(map_mat, img);
 }
 
 //Debug function
@@ -490,11 +498,7 @@ void TopDownRender::processMapBuffers() {
       cv::rotate(cv_bridge::toCvShare(img->second, sensor_msgs::image_encodings::BGR8)->image, 
           map_img, cv::ROTATE_90_CLOCKWISE);
 
-      cv::Mat viz_lut = cv::Mat::ones(256, 1, CV_8UC3)*255;
-      for (int original_cls=0; original_cls<flatten_lut_.size(); original_cls++) {
-        viz_lut.at<cv::Vec3b>(original_cls) = color_lut_.at<cv::Vec3b>(flatten_lut_[original_cls]);
-      }
-      cv::LUT(map_img, viz_lut, background_img_);
+      color_lut_.ind2Color(map_img, background_img_);
 
       Eigen::Vector2i map_loc_eig(-loc_it->second->point.x, -loc_it->second->point.y);
       map_loc_eig *= filter_->scale();
