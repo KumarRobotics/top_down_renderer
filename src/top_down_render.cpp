@@ -154,10 +154,9 @@ TopDownMap::Params TopDownRender::getTopDownMapParams(
   params.num_classes = class_params.flattened_to_class.size();
 
   params.exclusive_classes.resize(params.num_classes);
-  int flattened_id = 0;
   for (int class_id : class_params.flattened_to_class) {
     if (class_params.exclusivity[class_id]) {
-      params.exclusive_classes.push_back(flattened_id);
+      params.exclusive_classes.push_back(class_params.class_to_flattened[class_id]);
     }
   }
 

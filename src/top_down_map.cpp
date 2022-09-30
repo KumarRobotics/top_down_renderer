@@ -331,7 +331,6 @@ void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::
     }
     classes[under_cls_id] = classes[under_cls_id].cwiseMin(1);
   }
-
 }
 
 void TopDownMap::samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res) {
