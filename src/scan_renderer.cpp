@@ -70,7 +70,9 @@ void ScanRenderer::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXYZI>::
     int y_ind = std::round(pt.y/res)+img_size[1]/2;
     if (x_ind >= 0 && x_ind < img_size[0] && y_ind >= 0 && y_ind < img_size[1]) {
       int pt_class = cloud->points[idx].intensity;
-      imgs[flatten_lut_[pt_class]-1](y_ind, x_ind)++;
+      if (flatten_lut_[pt_class] >= 0) {  
+        imgs[flatten_lut_[pt_class]](y_ind, x_ind)++;
+      }
     }
   }
 }

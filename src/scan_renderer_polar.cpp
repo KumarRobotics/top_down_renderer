@@ -101,8 +101,8 @@ void ScanRendererPolar::renderSemanticTopDown(const pcl::PointCloud<pcl::PointXY
     int r_ind = std::round(r/res);
     if (theta_ind >= 0 && theta_ind < img_size[0] && r_ind >= 0 && r_ind < img_size[1]) {
       int pt_class = cloud->points[idx].intensity;
-      if (flatten_lut_[pt_class] > 0) {  
-        imgs[flatten_lut_[pt_class]-1](theta_ind, r_ind) += 1;
+      if (flatten_lut_[pt_class] >= 0) {  
+        imgs[flatten_lut_[pt_class]](theta_ind, r_ind) += 1;
       }
     }
   }

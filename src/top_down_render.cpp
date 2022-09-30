@@ -54,10 +54,10 @@ void TopDownRender::initialize() {
 
   // Convert to flatten_lut format
   unflatten_lut_ = class_params.flattened_to_class;
-  flatten_lut_ = Eigen::VectorXi::Zero(256);
+  flatten_lut_ = -Eigen::VectorXi::Ones(256);
   int map_class = 0;
   for (auto flattened_class : class_params.class_to_flattened) {
-    flatten_lut_[map_class] = flattened_class + 1;
+    flatten_lut_[map_class] = flattened_class;
     ++map_class;
   }
 
@@ -233,10 +233,10 @@ void TopDownRender::visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &im
 
   for (int idx=0; idx<map_mat.size().width; idx++) {
     for (int idy=0; idy<map_mat.size().height; idy++) {
-      char best_cls = 0;
+      int best_cls = 255;
       float best_cls_score = -std::numeric_limits<float>::infinity();
       float worst_cls_score = std::numeric_limits<float>::infinity();
-      char cls_id = 0;
+      int cls_id = 0;
       for (auto cls : classes) {
         if (cls(idx, idy) >= best_cls_score) {
           best_cls_score = cls(idx, idy);
