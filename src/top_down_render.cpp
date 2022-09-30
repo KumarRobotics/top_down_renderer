@@ -190,7 +190,6 @@ FilterParams TopDownRender::getFilterParams(
   nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
   nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
 
-  int flattened_id = 0;
   for (int class_id : class_params.flattened_to_class) {
     filter_params.class_weights.push_back(class_params.loc_weight[class_id]);
   }
@@ -290,15 +289,14 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   Eigen::Vector2f motion_priort = motion_prior.translation().head<2>();
   Eigen::Vector3f proj_rot = motion_prior.rotation() * Eigen::Vector3f::UnitX();
   float motion_priora = std::atan2(proj_rot[1], proj_rot[0]);
-  ROS_INFO_STREAM(motion_priort << ", " << motion_priora);
+  ROS_INFO_STREAM("\033[36m" << "[XView] Motion Prior trans:" << motion_priort.transpose() << 
+      ", rot: " << motion_priora << "\033[0m");
   filter_->propagate(motion_priort, motion_priora);
-  ROS_DEBUG("Filter propagate");
 
   filter_->update(top_down, top_down_geo, res);
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
-  ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
-  ROS_DEBUG("test");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Filter update " << dur.count() << " ms" << "\033[0m");
 
   cv::Mat background_copy = background_img_.clone();
   filter_->visualize(background_copy);
@@ -324,9 +322,9 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
 
 void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
                                const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
-  ROS_INFO_STREAM("pc cb");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Received Point Cloud" << "\033[0m");
   if (!map_->haveMap()) {
-    ROS_WARN_STREAM("No map received yet");
+    ROS_WARN_STREAM("[XView] No map received yet");
     return;  
   }
 
@@ -355,7 +353,7 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
     top_down_geo.push_back(img);
   }
 
-  ROS_INFO_STREAM("Starting render");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Starting Render" << "\033[0m");
   renderer_->renderSemanticTopDown(cloud_ptr, current_res_, 2*M_PI/100, top_down);
   //renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
 
@@ -365,7 +363,7 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
-  ROS_INFO_STREAM("Render took " << dur.count() << " ms");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Render took " << dur.count() << " ms" << "\033[0m");
   
   //Compute delta motion
   Eigen::Affine3d motion_prior_eig = Eigen::Affine3d::Identity();
@@ -397,10 +395,10 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   Eigen::Vector4f ml_state;
   filter_->meanLikelihood(ml_state);
 
-  ROS_INFO_STREAM("scale uncertainty: " << cov(3,3));
+  ROS_INFO_STREAM("\033[36m" << "[XView] Scale Uncertainty: " << cov(3,3) << "\033[0m");
   if (cov(3,3) < 0.003*ml_state[3]) {
     //freeze scale
-    ROS_INFO_STREAM("scale: " << ml_state[3]);
+    ROS_INFO_STREAM("\033[36m" << "[XView] Fixed Scale: " << ml_state[3] << "\033[0m");
     filter_->freezeScale();
   }
 

@@ -17,17 +17,17 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
 
   if (loadCacheMetaData(params_.map_path)) {
     loadCachedMaps();
-    ROS_INFO_STREAM("Loaded cached maps");
+    ROS_INFO_STREAM("\033[32m" << "[XView] Loaded cached maps" << "\033[0m");
   } else {
     if (params_.map_path.substr(params_.map_path.size()-4) == ".svg") { 
       //parse svg
       NSVGimage* map;
 
-      ROS_INFO_STREAM("Loading vector map " << params_.map_path);
+      ROS_INFO_STREAM("\033[32m" << "[XView] Loading vector map " << params_.map_path << "\033[0m");
       map = nsvgParseFromFile(params_.map_path.c_str(), "px", 96);
 
       if (map == NULL) {
-        ROS_ERROR("Map loading failed");
+        ROS_ERROR("[XView] Map loading failed");
         return;
       }
 
@@ -61,11 +61,11 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
             class_poly.begin(), class_poly.end());
       }
 
-      ROS_INFO("Vector map loaded.");
-      ROS_INFO_STREAM("Size: " << map->width << " x " << map->height);
+      ROS_INFO_STREAM("\033[32m" << "[XView] Vector map loaded, size: " << 
+          map->width << " x " << map->height << "\033[0m");
 
       // Generate full rasterized map
-      ROS_INFO_STREAM("Rasterizing map...");
+      ROS_INFO_STREAM("\033[32m" << "[XView] Rasterizing map..." << "\033[0m");
       for (size_t i=0; i<params_.num_classes; i++) {
         Eigen::ArrayXXf class_map(static_cast<int>(map->height/params_.resolution), 
                                   static_cast<int>(map->width/params_.resolution)); //0 inside obstacles, 1 elsewhere
@@ -73,11 +73,12 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
       }
 
       getRasterMap(Eigen::Vector2f(map->width/2, map->height/2), 0, params_.resolution, class_maps_);
-      ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
+      ROS_INFO_STREAM("\033[32m" << "[XView] Map rasterized, size: " << 
+          class_maps_[0].cols() << " x " << class_maps_[0].rows() << "\033[0m");
 
       saveRasterizedMaps(params_.map_path.substr(0, params_.map_path.size()-4) + "_raster_cache");
     } else {
-      ROS_INFO_STREAM("No cache found, loading raster map");
+      ROS_INFO_STREAM("\033[32m" << "[XView] Loading raster maps " << params_.map_path << "\033[0m");
       loadRasterizedMaps(params_.map_path);
     }
 
@@ -91,7 +92,7 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
     // Do this after so we can reuse maps
     computeDists(class_maps_);
     computeDists(geo_maps_);
-    ROS_INFO_STREAM("Rasterization complete");
+    ROS_INFO_STREAM("\033[32m" << "[XView] Map Loading Complete" << "\033[0m");
 
     saveCachedMaps(params_.map_path);
   }
@@ -136,7 +137,7 @@ void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center
   if (have_road_cells) {
     have_map_ = true;
   } else {
-    ROS_WARN("Received map with no road");
+    ROS_WARN("[XView] Received map with no road");
   }
 }
 
@@ -207,7 +208,7 @@ bool TopDownMap::loadCacheMetaData(const std::string &map_path) {
   std::ifstream data_file(std::string(getenv("HOME")) + "/.ros/xview_cache/cached_data.txt");
   if (!data_file) return false;
 
-  ROS_INFO_STREAM("Found cache, checking if parameters have changed");
+  ROS_INFO_STREAM("\033[32m" << "[XView] Found cache, checking if parameters have changed" << "\033[0m");
   
   //Check that metadata agrees
   std::string line;
@@ -261,7 +262,7 @@ void TopDownMap::saveCachedMaps(const std::string &map_path) {
 
 //For each cell, compute the distance to other cells
 void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
-  ROS_INFO_STREAM("Computing distance maps...");
+  ROS_INFO_STREAM("\033[32m" << "[XView] Computing distance maps..." << "\033[0m");
 
   auto start = std::chrono::high_resolution_clock::now();
   //Compute all locations with no known class
@@ -290,10 +291,11 @@ void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
     cv::threshold(mask_mat, mask_mat, classes.size()-1, 255, cv::THRESH_BINARY);
     dist_mat.setTo(params_.out_of_bounds_const, mask_mat); 
 
-    ROS_INFO_STREAM("class " << cls_id << " complete");
+    ROS_INFO_STREAM("\033[32m" << "[XView] Distance map for class " << cls_id << " complete" << "\033[0m");
   }
 
   auto end = std::chrono::high_resolution_clock::now();
+  ROS_INFO_STREAM("\033[32m" << "[XView] Distance maps computed" << "\033[0m");
   //ROS_INFO_STREAM("dist gen took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()/1000 << "ms");
 }
 
