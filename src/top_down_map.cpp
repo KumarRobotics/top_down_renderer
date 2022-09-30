@@ -1,8 +1,8 @@
 #include <filesystem>
 #include "top_down_render/top_down_map.h"
 
-//For some reason the implementation is in a separate #ifdef
-//and not within the include guards
+// For some reason the implementation is in a separate #ifdef
+// and not within the include guards
 #define NANOSVG_IMPLEMENTATION
 #include "top_down_render/nanosvg.h"
 
@@ -34,13 +34,15 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
       poly_.resize(params_.num_classes);
       for (size_t cls=0; cls<params_.flatten_lut.size(); cls++) {
         std::vector<std::vector<Eigen::Vector2f>> class_poly;
-        int color_compressed = params_.color_lut.ind2Color(cls);
+        auto color = SemanticColorLut::unpackColor(params_.color_lut.ind2Color(cls));
+        // The svg is 0xBBGGRR instead of 0xRRGGBB
+        uint32_t color_compressed = color[0] << 16 | color[1] << 8 | color[2];
 
-        //iterate through shapes
+        // iterate through shapes
         for (NSVGshape *shape = map->shapes; shape != NULL; shape = shape->next) {
           if ((shape->fill.color & 0xFFFFFF) == color_compressed) {
 
-            //iterate through paths (assume 1 path per shape, really)
+            // iterate through paths (assume 1 path per shape, really)
             for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
               std::vector<Eigen::Vector2f> eig_path;
               ROS_DEBUG_STREAM("path");
@@ -59,10 +61,10 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
             class_poly.begin(), class_poly.end());
       }
 
-      ROS_INFO("Map loaded.");
+      ROS_INFO("Vector map loaded.");
       ROS_INFO_STREAM("Size: " << map->width << " x " << map->height);
 
-      //Generate full rasterized map
+      // Generate full rasterized map
       ROS_INFO_STREAM("Rasterizing map...");
       for (size_t i=0; i<params_.num_classes; i++) {
         Eigen::ArrayXXf class_map(static_cast<int>(map->height/params_.resolution), 
@@ -70,8 +72,8 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
         class_maps_.push_back(class_map);
       }
 
-      ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
       getRasterMap(Eigen::Vector2f(map->width/2, map->height/2), 0, params_.resolution, class_maps_);
+      ROS_INFO_STREAM("Rasterized map size: " << class_maps_[0].cols() << " x " << class_maps_[0].rows());
 
       saveRasterizedMaps(params_.map_path.substr(0, params_.map_path.size()-4) + "_raster_cache");
     } else {
@@ -81,12 +83,12 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
 
     for (size_t i=0; i<2; i++) {
       Eigen::ArrayXXf geo_map(class_maps_[0].rows(), 
-                              class_maps_[0].cols()); //0 inside obstacles, 1 elsewhere
+                              class_maps_[0].cols()); // 0 inside obstacles, 1 elsewhere
       geo_maps_.push_back(geo_map);
     }
     getGeoRasterMap(geo_maps_);
 
-    //Do this after so we can reuse maps
+    // Do this after so we can reuse maps
     computeDists(class_maps_);
     computeDists(geo_maps_);
     ROS_INFO_STREAM("Rasterization complete");
@@ -100,14 +102,14 @@ void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center
   map_center_ = map_center;
   class_maps_.clear();
   for (size_t i=0; i<params_.num_classes; i++) {
-    //0 inside obstacles, 1 elsewhere
+    // 0 inside obstacles, 1 elsewhere
     Eigen::ArrayXXf class_map =
       Eigen::ArrayXXf::Constant(static_cast<int>(map.size().height/params_.resolution), 
                                 static_cast<int>(map.size().width/params_.resolution), 1.0); 
     class_maps_.push_back(class_map);
   }
 
-  //Not actually used at the moment
+  // Not actually used at the moment
   geo_maps_.clear();
   for (size_t i=0; i<2; i++) {
     Eigen::ArrayXXf geo_map =
