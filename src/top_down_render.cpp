@@ -378,7 +378,9 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   Eigen::Matrix4f cov;
   filter_->computeMeanCov(cov);
 
-  if (std::max(cov(0,0), cov(1,1)) > 15 && current_res_ < 4) {
+  float scale = filter_->scale();
+  float scale_2 = scale*scale;
+  if (std::max(cov(0,0), cov(1,1))/scale_2 > 5 && current_res_ < 4) {
     //cov big, expand local region
     current_res_ += 0.05;
   } else if (current_res_ > 0.5) {
@@ -395,7 +397,6 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   Eigen::Vector4f ml_state;
   filter_->meanLikelihood(ml_state);
 
-  ROS_INFO_STREAM("\033[36m" << "[XView] Scale Uncertainty: " << cov(3,3) << "\033[0m");
   if (cov(3,3) < 0.003*ml_state[3]) {
     //freeze scale
     ROS_INFO_STREAM("\033[36m" << "[XView] Fixed Scale: " << ml_state[3] << "\033[0m");
@@ -403,8 +404,6 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   }
 
   //Only publish if converged to unimodal dist
-  float scale = filter_->scale();
-  float scale_2 = scale*scale;
   if (cov(0,0)/scale_2 < 40 && cov(1,1)/scale_2 < 40 && cov(2,2) < 0.5 && filter_->scale() > 0) {
     is_converged_ = true;
   }
