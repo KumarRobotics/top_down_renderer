@@ -492,7 +492,7 @@ void TopDownRender::processMapBuffers() {
       ROS_INFO_STREAM("Got new map");
       //Convert to cv and rotate
       cv::Mat map_img;
-      cv::rotate(cv_bridge::toCvShare(img->second, sensor_msgs::image_encodings::BGR8)->image, 
+      cv::rotate(cv_bridge::toCvShare(img->second, sensor_msgs::image_encodings::MONO8)->image, 
           map_img, cv::ROTATE_90_CLOCKWISE);
 
       color_lut_.ind2Color(map_img, background_img_);

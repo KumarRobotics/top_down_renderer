@@ -20,65 +20,28 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
     ROS_INFO_STREAM("\033[32m" << "[XView] Loaded cached maps" << "\033[0m");
   } else {
     if (params_.map_path.substr(params_.map_path.size()-4) == ".svg") { 
-      //parse svg
-      NSVGimage* map;
+      std::vector<std::vector<std::vector<Eigen::Vector2f>>> poly;
+      auto map_size = loadSvg(params_.map_path, poly);
 
-      ROS_INFO_STREAM("\033[32m" << "[XView] Loading vector map " << params_.map_path << "\033[0m");
-      map = nsvgParseFromFile(params_.map_path.c_str(), "px", 96);
-
-      if (map == NULL) {
-        ROS_ERROR("[XView] Map loading failed");
-        return;
-      }
-
-      poly_.resize(params_.num_classes);
-      for (size_t cls=0; cls<params_.flatten_lut.size(); cls++) {
-        std::vector<std::vector<Eigen::Vector2f>> class_poly;
-        auto color = SemanticColorLut::unpackColor(params_.color_lut.ind2Color(cls));
-        // The svg is 0xBBGGRR instead of 0xRRGGBB
-        uint32_t color_compressed = color[0] << 16 | color[1] << 8 | color[2];
-
-        // iterate through shapes
-        for (NSVGshape *shape = map->shapes; shape != NULL; shape = shape->next) {
-          if ((shape->fill.color & 0xFFFFFF) == color_compressed) {
-
-            // iterate through paths (assume 1 path per shape, really)
-            for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
-              std::vector<Eigen::Vector2f> eig_path;
-              ROS_DEBUG_STREAM("path");
-
-              for (size_t i=0; i<path->npts-1; i+=3) {
-                float* p = &path->pts[i*2];
-                eig_path.push_back(Eigen::Vector2f(p[0], map->height-p[1]));
-                ROS_DEBUG_STREAM(p[0] << ", " << map->height-p[1]);
-              }
-              class_poly.push_back(eig_path);
-            }
-          }
-        }
-        // Append class_poly contents into the appropriate class
-        poly_[params_.flatten_lut[cls]].insert(poly_[params_.flatten_lut[cls]].end(), 
-            class_poly.begin(), class_poly.end());
-      }
-
-      ROS_INFO_STREAM("\033[32m" << "[XView] Vector map loaded, size: " << 
-          map->width << " x " << map->height << "\033[0m");
-
-      // Generate full rasterized map
-      ROS_INFO_STREAM("\033[32m" << "[XView] Rasterizing map..." << "\033[0m");
-      for (size_t i=0; i<params_.num_classes; i++) {
-        Eigen::ArrayXXf class_map(static_cast<int>(map->height/params_.resolution), 
-                                  static_cast<int>(map->width/params_.resolution)); //0 inside obstacles, 1 elsewhere
-        class_maps_.push_back(class_map);
-      }
-
-      getRasterMap(Eigen::Vector2f(map->width/2, map->height/2), 0, params_.resolution, class_maps_);
+      getRasterMap(map_size, 0, params_.resolution, poly);
       ROS_INFO_STREAM("\033[32m" << "[XView] Map rasterized, size: " << 
           class_maps_[0].cols() << " x " << class_maps_[0].rows() << "\033[0m");
 
       saveRasterizedMaps(params_.map_path.substr(0, params_.map_path.size()-4) + "_raster_cache");
+    } else if (params_.map_path.substr(params_.map_path.size()-4) == ".png" ||
+               params_.map_path.substr(params_.map_path.size()-4) == ".jpg") 
+    {
+      ROS_INFO_STREAM("\033[32m" << "[XView] Loading compressed raster map " << params_.map_path << "\033[0m");
+      cv::Mat color_map = cv::imread(params_.map_path);
+      if (!color_map.empty()) {
+        cv::Mat class_map;
+        params_.color_lut.color2Ind(color_map, class_map);
+        loadCompressedRasterMap(class_map);
+      } else {
+        ROS_ERROR("[XView] Compressed raster map loading failed");
+      }
     } else {
-      ROS_INFO_STREAM("\033[32m" << "[XView] Loading raster maps " << params_.map_path << "\033[0m");
+      ROS_INFO_STREAM("\033[32m" << "[XView] Loading raster cache " << params_.map_path << "\033[0m");
       loadRasterizedMaps(params_.map_path);
     }
 
@@ -99,8 +62,56 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
   have_map_ = true;
 }
 
-void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center) {
-  map_center_ = map_center;
+Eigen::Vector2i TopDownMap::loadSvg(
+    const std::string& svg_path, std::vector<std::vector<std::vector<Eigen::Vector2f>>>& poly)
+{
+  ROS_INFO_STREAM("\033[32m" << "[XView] Loading vector map " << params_.map_path << "\033[0m");
+  NSVGimage* map = nsvgParseFromFile(svg_path.c_str(), "px", 96);
+
+  if (map == NULL) {
+    ROS_ERROR("[XView] Svg map loading failed");
+    return {0, 0};
+  }
+
+  poly.resize(params_.num_classes);
+  for (size_t cls=0; cls<params_.flatten_lut.size(); cls++) {
+    std::vector<std::vector<Eigen::Vector2f>> class_poly;
+    auto color = SemanticColorLut::unpackColor(params_.color_lut.ind2Color(cls));
+    // The svg is 0xBBGGRR instead of 0xRRGGBB
+    uint32_t color_compressed = color[0] << 16 | color[1] << 8 | color[2];
+
+    // iterate through shapes
+    for (NSVGshape *shape = map->shapes; shape != NULL; shape = shape->next) {
+      if ((shape->fill.color & 0xFFFFFF) == color_compressed) {
+
+        // iterate through paths (assume 1 path per shape, really)
+        for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
+          std::vector<Eigen::Vector2f> eig_path;
+          ROS_DEBUG_STREAM("path");
+
+          for (size_t i=0; i<path->npts-1; i+=3) {
+            float* p = &path->pts[i*2];
+            eig_path.push_back(Eigen::Vector2f(p[0], map->height-p[1]));
+            //ROS_DEBUG_STREAM(p[0] << ", " << map->height-p[1]);
+          }
+          class_poly.push_back(eig_path);
+        }
+      }    
+    }
+    // Append class_poly contents into the appropriate class
+    poly[params_.flatten_lut[cls]].insert(poly[params_.flatten_lut[cls]].end(), 
+        class_poly.begin(), class_poly.end());
+  }
+
+  ROS_INFO_STREAM("\033[32m" << "[XView] Vector map loaded, size: " << 
+      map->width << " x " << map->height << "\033[0m");
+
+  nsvgDelete(map);
+
+  return {map->width, map->height};
+}
+
+void TopDownMap::loadCompressedRasterMap(const cv::Mat& map) {
   class_maps_.clear();
   for (size_t i=0; i<params_.num_classes; i++) {
     // 0 inside obstacles, 1 elsewhere
@@ -119,26 +130,28 @@ void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center
     geo_maps_.push_back(geo_map);
   }
 
-  bool have_road_cells = false;
   for (size_t xi=0; xi<class_maps_[0].cols(); xi++) {
     for (size_t yi=0; yi<class_maps_[0].rows(); yi++) {
-      int cls = params_.flatten_lut[map.at<cv::Vec3b>(std::max<int>(map.size().height-yi*params_.resolution-1, 0), 
-                                               std::min<int>(xi*params_.resolution, map.size().width-1))[0]]-1;
+      int cls = params_.flatten_lut[map.at<uint8_t>(std::max<int>(map.size().height-yi*params_.resolution-1, 0), 
+                                               std::min<int>(xi*params_.resolution, map.size().width-1))];
       if (cls >= 0 && cls < class_maps_.size()) {
         class_maps_[cls](yi, xi) = 0;
-        if (cls == 1) {
-          have_road_cells = true;
-        }
       }
     }
   }
-  computeDists(class_maps_);
+}
 
-  if (have_road_cells) {
+void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center) {
+  map_center_ = map_center;
+  loadCompressedRasterMap(map);
+
+  if (!class_maps_[1].isZero(0)) {
     have_map_ = true;
   } else {
     ROS_WARN("[XView] Received map with no road");
   }
+
+  computeDists(class_maps_);
 }
 
 void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes) {
@@ -299,11 +312,14 @@ void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
   //ROS_INFO_STREAM("dist gen took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()/1000 << "ms");
 }
 
-void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes) {
-  if (classes.size() < poly_.size()) return;
+void TopDownMap::getClasses(Eigen::Ref<Eigen::Array2Xf> pts, 
+    const std::vector<std::vector<std::vector<Eigen::Vector2f>>> &poly,
+    std::vector<Eigen::ArrayXXf>& classes)
+{
+  if (classes.size() < poly.size()) return;
   //Algorithm modified from https://en.wikipedia.org/wiki/Even-odd_rule
   int cls_id = 0;
-  for (auto cls : poly_) {
+  for (auto cls : poly) {
     Eigen::Map<Eigen::Array1Xf> class_fills(classes[cls_id].data(), 1, classes[cls_id].size());
     Eigen::Array1Xf class_fills_buf(classes[cls_id].size());
     class_fills = -1;
@@ -359,13 +375,23 @@ void TopDownMap::samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &p
   y_vals += center[0];
 }
 
-void TopDownMap::getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes) {
-  if (classes.size() < 1) return;
+void TopDownMap::getRasterMap(const Eigen::Vector2i& map_size, float rot, float res, 
+    std::vector<std::vector<std::vector<Eigen::Vector2f>>> &poly) 
+{
+  if (poly.size() < 1) return;
 
-  Eigen::Array2Xf pts(2, classes[0].rows()*classes[0].cols());
-  samplePts(center, rot, pts, classes[0].cols(), classes[0].rows(), res);
+  // Generate full rasterized map
+  ROS_INFO_STREAM("\033[32m" << "[XView] Rasterizing map..." << "\033[0m");
+  for (size_t i=0; i<params_.num_classes; i++) {
+    Eigen::ArrayXXf class_map(static_cast<int>(map_size[1]/params_.resolution), 
+                              static_cast<int>(map_size[2]/params_.resolution)); //0 inside obstacles, 1 elsewhere
+    class_maps_.push_back(class_map);
+  }
 
-  getClasses(pts, classes);
+  Eigen::Array2Xf pts(2, class_maps_[0].rows()*class_maps_[0].cols());
+  samplePts(map_size.cast<float>()/2, rot, pts, class_maps_[0].cols(), class_maps_[0].rows(), res);
+
+  getClasses(pts, poly, class_maps_);
 }
 
 void TopDownMap::getGeoRasterMap(std::vector<Eigen::ArrayXXf> &geo_cls) {

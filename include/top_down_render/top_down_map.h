@@ -73,7 +73,6 @@ class TopDownMap {
     float resolution() const;
     bool haveMap() const;
   protected:
-    std::vector<std::vector<std::vector<Eigen::Vector2f>>> poly_;
     std::vector<Eigen::ArrayXXf> class_maps_;
     std::vector<Eigen::ArrayXXf> geo_maps_;
 
@@ -81,15 +80,21 @@ class TopDownMap {
     bool have_map_;
     Eigen::Vector2i map_center_;
 
+    Eigen::Vector2i loadSvg(const std::string& svg_path,
+        std::vector<std::vector<std::vector<Eigen::Vector2f>>> &poly);
     void saveRasterizedMaps(const std::string &map_path);
     void loadRasterizedMaps(const std::string &map_path);
+    void loadCompressedRasterMap(const cv::Mat &map);
     bool loadCacheMetaData(const std::string &map_path);
     void loadCachedMaps();
     void saveCachedMaps(const std::string &path);
-    void getRasterMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &classes);
+    void getRasterMap(const Eigen::Vector2i& map_size, float rot, float res,
+        std::vector<std::vector<std::vector<Eigen::Vector2f>>> &poly);
     void getGeoRasterMap(std::vector<Eigen::ArrayXXf> &geo_cls);
     void computeDists(std::vector<Eigen::ArrayXXf> &classes);
-    void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, std::vector<Eigen::ArrayXXf> &classes);
+    void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, 
+        const std::vector<std::vector<std::vector<Eigen::Vector2f>>> &poly,
+        std::vector<Eigen::ArrayXXf>& classes);
     void samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &pts, int cols, int rows, float res);
 };
 
