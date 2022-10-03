@@ -106,9 +106,10 @@ Eigen::Vector2i TopDownMap::loadSvg(
   ROS_INFO_STREAM("\033[32m" << "[XView] Vector map loaded, size: " << 
       map->width << " x " << map->height << "\033[0m");
 
+  Eigen::Vector2i map_size{map->width, map->height};
   nsvgDelete(map);
 
-  return {map->width, map->height};
+  return map_size;
 }
 
 void TopDownMap::loadCompressedRasterMap(const cv::Mat& map) {
@@ -384,7 +385,7 @@ void TopDownMap::getRasterMap(const Eigen::Vector2i& map_size, float rot, float 
   ROS_INFO_STREAM("\033[32m" << "[XView] Rasterizing map..." << "\033[0m");
   for (size_t i=0; i<params_.num_classes; i++) {
     Eigen::ArrayXXf class_map(static_cast<int>(map_size[1]/params_.resolution), 
-                              static_cast<int>(map_size[2]/params_.resolution)); //0 inside obstacles, 1 elsewhere
+                              static_cast<int>(map_size[0]/params_.resolution)); //0 inside obstacles, 1 elsewhere
     class_maps_.push_back(class_map);
   }
 
