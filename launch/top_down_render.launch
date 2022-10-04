@@ -17,11 +17,15 @@
   <arg name="map_pub_scale" default="1"/>
 
   <node name="top_down_render" pkg="top_down_render" type="top_down_render_node" output="$(arg output)">
+    <!-- Remappings -->
     <remap from="~/pc" to="/os_node/segmented_point_cloud"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
     <remap from="~/map_image" to="/titan/asoom/map_sem_img"/>
     <remap from="~/map_loc" to="/titan/asoom/map_sem_img_center"/>
+    <remap from="~/pose_est" to="/spomp_mapper/global_est"/>
+    <remap from="~/motion_prior" to="/os_node/llol_odom/pose"/>
 
+    <!-- Params -->
     <param name="world_config_path" value="$(arg world_config_path)"/>
     <rosparam command="load" subst_value="True" file="$(arg init_param_path)"/>
 
@@ -34,9 +38,6 @@
     <param name="use_motion_prior" value="$(arg use_motion_prior)"/>
 
     <param name="map_pub_scale" value="1"/>
-
-    <remap from="~/pose_est" to="/spomp_mapper/global_est"/>
-    <remap from="~/motion_prior" to="/os_node/llol_odom/pose"/>
   </node>
 
   <group if="$(eval not arg('simulation'))">
