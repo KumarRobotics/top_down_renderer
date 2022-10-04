@@ -80,6 +80,9 @@ void TopDownRender::initialize() {
 
   map_ = new TopDownMapPolar(top_down_map_params);
 
+  // Scaling factor for visualization
+  nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
+
   if (map_params.dynamic) {
     map_image_sub_ = nh_.subscribe<sensor_msgs::Image>("map_image", 1,
         &TopDownRender::mapImageCallback, this);
@@ -87,7 +90,6 @@ void TopDownRender::initialize() {
         &TopDownRender::mapLocCallback, this);
   } else {
     // Load background map
-    nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
     background_img_ = cv::imread(map_params.viz_path, cv::IMREAD_COLOR);
 
     cv::Mat background_copy_small;
@@ -131,9 +133,10 @@ void TopDownRender::initialize() {
     setw(width) << "[ROS] init_pos_deg_theta: " << filter_params.init_pos_deg_theta << endl <<
     setw(width) << "[ROS] init_pos_deg_cov: " << filter_params.init_pos_deg_cov << endl <<
     "[ROS] ===============================" << endl <<
+    setw(width) << "[ROS] use_motion_prior: " << use_motion_prior << endl <<
     setw(width) << "[ROS] svg_origin_x: " << svg_origin_x << endl <<
     setw(width) << "[ROS] svg_origin_y: " << svg_origin_y << endl <<
-    setw(width) << "[ROS] map_pub_scale_: " << map_pub_scale_ << endl <<
+    setw(width) << "[ROS] map_pub_scale: " << map_pub_scale_ << endl <<
     "[ROS] ====== End Configuration ======" << "\033[0m");
 }
 
