@@ -183,13 +183,26 @@ FilterParams TopDownRender::getFilterParams(
 
   nh_.param<float>("conf_factor", conf_factor_, 1);
 
-  nh_.param<float>("init_pos_px_x", filter_params.init_pos_px_x, -1);
-  nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
+  std::string tmp_ext_buf;
+  nh_.getParam("init_pos_px_x", tmp_ext_buf);
+  if (tmp_ext_buf == "none") {
+    filter_params.init_pos_px_x = -1;
+    filter_params.init_pos_px_y = -1;
+  } else {
+    nh_.param<float>("init_pos_px_x", filter_params.init_pos_px_x, -1);
+    nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
+  }
   nh_.param<float>("init_pos_px_cov", filter_params.init_pos_px_cov, -1);
 
   constexpr float inf = std::numeric_limits<float>::infinity();
-  nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
-  nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
+  nh_.getParam("init_pos_m_x", tmp_ext_buf);
+  if (tmp_ext_buf == "none") {
+    filter_params.init_pos_m_x = inf;
+    filter_params.init_pos_m_y = inf;
+  } else {
+    nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
+    nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
+  }
   nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
   nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
 
@@ -414,7 +427,7 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   if (is_converged_) {
     geometry_msgs::PoseWithCovarianceStamped pose;
     pose.header = cloud_msg->header;
-    pose.header.frame_id = "world";
+    pose.header.frame_id = "map";
 
     std_msgs::Float32 scale_msg;
     scale_msg.data = scale;
@@ -447,7 +460,7 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
 
   geometry_msgs::TransformStamped map_svg_transform;
   map_svg_transform.header.stamp = cloud_msg->header.stamp;
-  map_svg_transform.header.frame_id = "world";
+  map_svg_transform.header.frame_id = "map";
   map_svg_transform.child_frame_id = "sem_map";
   map_svg_transform.transform.translation.x = (background_img_.size().width/2-map_center_.x)/scale;
   map_svg_transform.transform.translation.y = -(background_img_.size().height/2-map_center_.y)/scale;
