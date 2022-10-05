@@ -203,6 +203,8 @@ void TopDownMap::saveRasterizedMaps(const std::string &path) {
     Eigen::MatrixXf mat_map = map.array();
     cv::eigen2cv(mat_map, cv_map);
     cv_map.convertTo(cv_map_scaled, CV_8UC1, 255);
+    // Flip to look like the input map
+    cv::flip(cv_map_scaled, cv_map_scaled, 0);
     cv::imwrite(path+"/class"+std::to_string(ind++)+".png", cv_map_scaled);
   }
 }
@@ -211,6 +213,8 @@ void TopDownMap::loadRasterizedMaps(const std::string &map_path) {
   cv::Mat cv_map, cv_map_float;
   for (size_t i=0; i<params_.num_classes; i++) {
     cv_map = cv::imread(map_path+"/class"+std::to_string(i)+".png", cv::IMREAD_GRAYSCALE);
+    // We flipped when we saved, have to flip back
+    cv::flip(cv_map, cv_map, 0);
     cv_map.convertTo(cv_map_float, CV_32FC1, 1./255);
     Eigen::MatrixXf mat_map;
     cv::cv2eigen(cv_map_float, mat_map);
