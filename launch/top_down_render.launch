@@ -37,7 +37,7 @@
     <param name="out_of_bounds_const" value="$(arg out_of_bounds_const)"/>
 
     <param name="use_motion_prior" value="$(arg use_motion_prior)"/>
-    <param name="map_pub_scale" value="1"/>
+    <param name="map_pub_scale" value="$(arg map_pub_scale)"/>
   </node>
 
   <group if="$(eval not arg('simulation'))">
