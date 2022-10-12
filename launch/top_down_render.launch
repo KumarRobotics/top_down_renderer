@@ -10,9 +10,17 @@
   <arg name="filter_pos_cov" default="0.15"/>
   <arg name="filter_theta_cov" default="0.004"/>
   <arg name="filter_regularization" default="0.7"/>
+  <arg name="filter_force_on_map" default="False"/>
+  <arg name="filter_scale_log_min" default="-0.1"/>
+  <arg name="filter_scale_log_max" default="1"/>
   <arg name="conf_factor" default="1"/>
   <arg name="out_of_bounds_const" default="3"/>
+  <arg name="target_uncertainty_m" default="2.5"/>
+  <arg name="range_scale_min" default="0.5"/>
+  <arg name="range_scale_max" default="4"/>
 
+  <arg name="map_frame" default="map"/>
+  <arg name="map_viz_frame" default="sem_map"/>
   <arg name="use_motion_prior" default="True"/>
   <arg name="map_pub_scale" default="1"/>
 
@@ -33,9 +41,17 @@
     <param name="filter_pos_cov" value="$(arg filter_pos_cov)"/>
     <param name="filter_theta_cov" value="$(arg filter_theta_cov)"/>
     <param name="filter_regularization" value="$(arg filter_regularization)"/>
+    <param name="filter_force_on_map" value="$(arg filter_force_on_map)"/>
+    <param name="filter_scale_log_min" value="$(arg filter_scale_log_min)"/>
+    <param name="filter_scale_log_max" value="$(arg filter_scale_log_max)"/>
     <param name="conf_factor" value="$(arg conf_factor)"/>
     <param name="out_of_bounds_const" value="$(arg out_of_bounds_const)"/>
+    <param name="target_uncertainty_m" value="$(arg target_uncertainty_m)"/>
+    <param name="range_scale_min" value="$(arg range_scale_min)"/>
+    <param name="range_scale_max" value="$(arg range_scale_max)"/>
 
+    <param name="map_frame" value="$(arg map_frame)"/>
+    <param name="map_viz_frame" value="$(arg map_viz_frame)"/>
     <param name="use_motion_prior" value="$(arg use_motion_prior)"/>
     <param name="map_pub_scale" value="$(arg map_pub_scale)"/>
   </node>

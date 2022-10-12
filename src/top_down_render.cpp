@@ -46,6 +46,13 @@ void TopDownRender::initialize() {
   nh_.param<int>("svg_origin_x", svg_origin_x, 0);
   nh_.param<int>("svg_origin_y", svg_origin_y, 0);
 
+  nh_.param<std::string>("map_frame", map_frame_, "map");
+  nh_.param<std::string>("map_viz_frame", map_viz_frame_, "sem_map");
+
+  nh_.param<float>("range_scale_min", range_scale_min_, 0.5);
+  nh_.param<float>("range_scale_max", range_scale_max_, 4);
+  current_range_scale_ = range_scale_max_;
+
   //Get filter parameters
   auto filter_params = getFilterParams(class_params, map_params);
 
@@ -122,8 +129,14 @@ void TopDownRender::initialize() {
     setw(width) << "[ROS] filter_pos_cov: " << filter_params.pos_cov << endl <<
     setw(width) << "[ROS] filter_theta_cov: " << filter_params.theta_cov << endl <<
     setw(width) << "[ROS] filter_regularization: " << filter_params.regularization << endl <<
+    setw(width) << "[ROS] filter_force_on_map: " << filter_params.force_on_map << endl <<
+    setw(width) << "[ROS] filter_scale_log_min: " << filter_params.scale_log_min << endl <<
+    setw(width) << "[ROS] filter_scale_log_max: " << filter_params.scale_log_max << endl <<
     setw(width) << "[ROS] conf_factor: " << conf_factor_ << endl <<
     setw(width) << "[ROS] out_of_bounds_const: " << top_down_map_params.out_of_bounds_const << endl <<
+    setw(width) << "[ROS] target_uncertainty_m: " << target_uncertainty_m_ << endl <<
+    setw(width) << "[ROS] range_scale_min: " << range_scale_min_ << endl <<
+    setw(width) << "[ROS] range_scale_max: " << range_scale_max_ << endl <<
     "[ROS] ===============================" << endl <<
     setw(width) << "[ROS] init_pos_px_x: " << filter_params.init_pos_px_x << endl <<
     setw(width) << "[ROS] init_pos_px_y: " << filter_params.init_pos_px_y << endl <<
@@ -133,6 +146,8 @@ void TopDownRender::initialize() {
     setw(width) << "[ROS] init_pos_deg_theta: " << filter_params.init_pos_deg_theta << endl <<
     setw(width) << "[ROS] init_pos_deg_cov: " << filter_params.init_pos_deg_cov << endl <<
     "[ROS] ===============================" << endl <<
+    setw(width) << "[ROS] map_frame: " << map_frame_ << endl <<
+    setw(width) << "[ROS] map_viz_frame: " << map_viz_frame_ << endl <<
     setw(width) << "[ROS] use_motion_prior: " << use_motion_prior << endl <<
     setw(width) << "[ROS] svg_origin_x: " << svg_origin_x << endl <<
     setw(width) << "[ROS] svg_origin_y: " << svg_origin_y << endl <<
@@ -179,7 +194,6 @@ FilterParams TopDownRender::getFilterParams(
   nh_.param<float>("filter_pos_cov", filter_params.pos_cov, 0.3);
   nh_.param<float>("filter_theta_cov", filter_params.theta_cov, M_PI/100);
   nh_.param<float>("filter_regularization", filter_params.regularization, 0.15);
-  filter_params.fixed_scale = map_params.resolution;
 
   nh_.param<float>("conf_factor", conf_factor_, 1);
 
@@ -205,6 +219,11 @@ FilterParams TopDownRender::getFilterParams(
   }
   nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
   nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
+
+  nh_.param<bool>("filter_force_on_map", filter_params.force_on_map, false);
+  filter_params.fixed_scale = map_params.resolution;
+  nh_.param<float>("filter_scale_log_min", filter_params.scale_log_min, -0.1);
+  nh_.param<float>("filter_scale_log_max", filter_params.scale_log_max, 1);
 
   for (int class_id : class_params.flattened_to_class) {
     filter_params.class_weights.push_back(class_params.loc_weight[class_id]);
@@ -370,8 +389,8 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   }
 
   ROS_INFO_STREAM("\033[36m" << "[XView] Starting Render" << "\033[0m");
-  renderer_->renderSemanticTopDown(cloud_ptr, current_res_, 2*M_PI/100, top_down);
-  //renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
+  renderer_->renderSemanticTopDown(cloud_ptr, current_range_scale_, 2*M_PI/100, top_down);
+  //renderer_->renderGeometricTopDown(cloud, current_range_scale_, 2*M_PI/100, top_down_geo);
 
   //convert pointcloud header to ROS header
   publishSemanticTopDown(top_down, cloud_msg->header);
@@ -390,18 +409,20 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   last_prior_pose_ = motion_prior_eig.cast<float>();
 
   //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
-  updateFilter(top_down, top_down_geo, current_res_, delta_pose, cloud_msg->header);
+  updateFilter(top_down, top_down_geo, current_range_scale_, delta_pose, cloud_msg->header);
   Eigen::Matrix4f cov;
   filter_->computeMeanCov(cov);
 
   float scale = filter_->scale();
   float scale_2 = scale*scale;
-  if (std::max(cov(0,0), cov(1,1))/scale_2 > 5 && current_res_ < 4) {
+  if (std::max(cov(0,0), cov(1,1))/scale_2 > std::pow(target_uncertainty_m_, 2) && 
+      current_range_scale_ < range_scale_max_) 
+  {
     //cov big, expand local region
-    current_res_ += 0.05;
-  } else if (current_res_ > 0.5) {
+    current_range_scale_ += 0.05;
+  } else if (current_range_scale_ > range_scale_min_) {
     //we gucci, shrink to refine
-    current_res_ -= 0.02;
+    current_range_scale_ -= 0.02;
   }
 
   if (filter_->numParticles() < 1) {
@@ -427,7 +448,7 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   if (is_converged_) {
     geometry_msgs::PoseWithCovarianceStamped pose;
     pose.header = cloud_msg->header;
-    pose.header.frame_id = "map";
+    pose.header.frame_id = map_frame_;
 
     std_msgs::Float32 scale_msg;
     scale_msg.data = scale;
@@ -460,8 +481,8 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
 
   geometry_msgs::TransformStamped map_svg_transform;
   map_svg_transform.header.stamp = cloud_msg->header.stamp;
-  map_svg_transform.header.frame_id = "map";
-  map_svg_transform.child_frame_id = "sem_map";
+  map_svg_transform.header.frame_id = map_frame_;
+  map_svg_transform.child_frame_id = map_viz_frame_;
   map_svg_transform.transform.translation.x = (background_img_.size().width/2-map_center_.x)/scale;
   map_svg_transform.transform.translation.y = -(background_img_.size().height/2-map_center_.y)/scale;
   map_svg_transform.transform.translation.z = -2;

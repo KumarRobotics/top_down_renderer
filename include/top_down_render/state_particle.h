@@ -20,7 +20,6 @@ typedef struct FilterParams {
   float pos_cov;
   float theta_cov;
   float regularization;
-  float fixed_scale = -1;
   float init_pos_px_x = -1; 
   float init_pos_px_y = -1;
   float init_pos_px_cov = -1;
@@ -29,6 +28,11 @@ typedef struct FilterParams {
   float init_pos_m_y = -1;
   float init_pos_deg_theta = -1;
   float init_pos_deg_cov = -1;
+
+  bool force_on_map = false;
+  float fixed_scale = -1;
+  float scale_log_min = -0.1;
+  float scale_log_max = 1;
 
   std::vector<float> class_weights;
 } FilterParams;
