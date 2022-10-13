@@ -4,7 +4,7 @@
   <arg name="output" default="screen"/>
 
   <arg name="world_config_path" default="$(find semantics_manager)/config/config.yaml"/>
-  <arg name="init_param_path" default="$(find top_down_render)/config/live_map.yaml"/>
+  <arg name="init_param_path" default="$(find top_down_render)/config/init_conditions_default.yaml"/>
 
   <arg name="particle_count" default="300"/>
   <arg name="filter_pos_cov" default="0.15"/>
