@@ -1,8 +1,0 @@
-map_path: "$(find top_down_render)/maps/morgantown"
-use_raster: False
-svg_res: 1.31
-svg_origin_x: 0
-svg_origin_y: 0
-#init_pos_px_x: 1200
-#init_pos_px_y: 977
-#init_pos_px_cov: 50
