@@ -70,10 +70,16 @@ class TopDownRender {
     std::map<long, const sensor_msgs::Image::ConstPtr> map_image_buf_;
     std::map<long, const geometry_msgs::PointStamped::ConstPtr> map_loc_buf_;
 
+    std::string map_frame_ = "map";
+    std::string map_viz_frame_ = "sem_map";
+
     float map_pub_scale_ = 1;
     float conf_factor_ = 1;
+    float range_scale_max_ = 4;
+    float range_scale_min_ = 0.5;
+    float target_uncertainty_m_ = 2.5;
 
-    float current_res_ = 4; //m/px range
+    float current_range_scale_ = 4; //m/px range
     bool is_converged_ = false;
 
     TopDownMap::Params getTopDownMapParams(

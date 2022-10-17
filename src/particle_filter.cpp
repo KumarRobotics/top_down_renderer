@@ -31,7 +31,7 @@ void ParticleFilter::initializeParticles() {
 
     if (params_.init_pos_px_x < 0 || params_.init_pos_px_x >= map_->size()[0] ||
         params_.init_pos_px_y < 0 || params_.init_pos_px_y >= map_->size()[1]) {
-      ROS_WARN("No map received for input loc");
+      ROS_WARN("[XView] No map received for input loc");
       return;
     } 
 
@@ -47,13 +47,13 @@ void ParticleFilter::initializeParticles() {
       }
     }
     if (!good_init) {
-      ROS_WARN("No road in map at init location");
+      ROS_WARN("[XView] No road in map at init location");
       return;
     }
   }
 
   //Weights should be even
-  ROS_INFO_STREAM("Initializing particles...");
+  ROS_INFO_STREAM("\033[32m" << "[XView] Initializing Particles..." << "\033[0m");
   for (int i=0; i<max_num_particles_/num_at_scale; i++) {
     StateParticle proto_part(gen_, map_, &params_);
     for (float scale=0; scale<1; scale+=1./num_at_scale) {
@@ -80,7 +80,7 @@ void ParticleFilter::initializeParticles() {
   //Initialize Gaussians
   computeGMM();
   gmm_thread_ = new std::thread(std::bind(&ParticleFilter::gmmThread, this));
-  ROS_INFO_STREAM("Particles initialized");
+  ROS_INFO_STREAM("\033[32m" << "[XView] Particles Initialized" << "\033[0m");
 }
 
 void ParticleFilter::propagate(Eigen::Vector2f &trans, float omega) {
@@ -103,7 +103,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   }
 
   particle_lock_.lock();
-  ROS_INFO_STREAM("computing weights...");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Particle filter computing weights..." << "\033[0m");
   //Recompute weights
   std::for_each(std::execution::par, particles_.begin(), particles_.end(), 
                 std::bind(&StateParticle::computeWeight, std::placeholders::_1, top_down_scan, top_down_geo, res));
@@ -112,7 +112,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   for (int i; i<particles_.size(); i++) {
     weights_[i] = particles_[i]->weight();
   }
-  ROS_INFO_STREAM("particle weights: " << weights_.sum());
+  ROS_INFO_STREAM("\033[36m" << "[XView] Particle weight sum: " << weights_.sum() << "\033[0m");
   weights_ = weights_/weights_.sum(); //Renormalize
 
   //Regularize weights based on distance travelled
@@ -127,7 +127,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   weights_.maxCoeff(&max_weight);
   max_likelihood_particle_ = particles_[max_weight];
 
-  ROS_INFO_STREAM("particle reweighting complete");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Particle reweighting complete" << "\033[0m");
 
   int last_num_particles = num_particles_;
   num_particles_ = 0;
@@ -136,17 +136,17 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
     num_particles_ += static_cast<int>(sqrt(eig[0].real())*sqrt(eig[1].real())); //Approximation of area of cov ellipse
   }
   num_particles_ = std::min(std::max(num_particles_, 3*last_num_particles/4+10), max_num_particles_); //bounds
-  ROS_INFO_STREAM(num_particles_ << " particles");
+  ROS_INFO_STREAM("\033[36m" << "[XView] " << num_particles_ << " particles" << "\033[0m");
 
   //resize new_particles_
   if (num_particles_ < new_particles_.size()) {
     new_particles_.resize(num_particles_);
   } else {
-    ROS_DEBUG_STREAM("current size: " << new_particles_.size());
+    ROS_DEBUG_STREAM("[XView] current size: " << new_particles_.size());
     while (new_particles_.size() < num_particles_) {
       new_particles_.push_back(std::make_shared<StateParticle>(gen_, map_, &params_, false));
     }
-    ROS_DEBUG("Created new particles");
+    ROS_DEBUG("[XView] Created new particles");
   }
   
   //Resample
@@ -164,7 +164,7 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
     }
     new_particles_[i]->setState(particles_[j]->state());
   }
-  ROS_DEBUG("Resampled");
+  ROS_DEBUG("[XView] Resampled");
   particles_.swap(new_particles_);
   particle_lock_.unlock();
 }

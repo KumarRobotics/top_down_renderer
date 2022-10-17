@@ -46,6 +46,13 @@ void TopDownRender::initialize() {
   nh_.param<int>("svg_origin_x", svg_origin_x, 0);
   nh_.param<int>("svg_origin_y", svg_origin_y, 0);
 
+  nh_.param<std::string>("map_frame", map_frame_, "map");
+  nh_.param<std::string>("map_viz_frame", map_viz_frame_, "sem_map");
+
+  nh_.param<float>("range_scale_min", range_scale_min_, 0.5);
+  nh_.param<float>("range_scale_max", range_scale_max_, 4);
+  current_range_scale_ = range_scale_max_;
+
   //Get filter parameters
   auto filter_params = getFilterParams(class_params, map_params);
 
@@ -80,6 +87,9 @@ void TopDownRender::initialize() {
 
   map_ = new TopDownMapPolar(top_down_map_params);
 
+  // Scaling factor for visualization
+  nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
+
   if (map_params.dynamic) {
     map_image_sub_ = nh_.subscribe<sensor_msgs::Image>("map_image", 1,
         &TopDownRender::mapImageCallback, this);
@@ -87,7 +97,6 @@ void TopDownRender::initialize() {
         &TopDownRender::mapLocCallback, this);
   } else {
     // Load background map
-    nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
     background_img_ = cv::imread(map_params.viz_path, cv::IMREAD_COLOR);
 
     cv::Mat background_copy_small;
@@ -120,8 +129,14 @@ void TopDownRender::initialize() {
     setw(width) << "[ROS] filter_pos_cov: " << filter_params.pos_cov << endl <<
     setw(width) << "[ROS] filter_theta_cov: " << filter_params.theta_cov << endl <<
     setw(width) << "[ROS] filter_regularization: " << filter_params.regularization << endl <<
+    setw(width) << "[ROS] filter_force_on_map: " << filter_params.force_on_map << endl <<
+    setw(width) << "[ROS] filter_scale_log_min: " << filter_params.scale_log_min << endl <<
+    setw(width) << "[ROS] filter_scale_log_max: " << filter_params.scale_log_max << endl <<
     setw(width) << "[ROS] conf_factor: " << conf_factor_ << endl <<
     setw(width) << "[ROS] out_of_bounds_const: " << top_down_map_params.out_of_bounds_const << endl <<
+    setw(width) << "[ROS] target_uncertainty_m: " << target_uncertainty_m_ << endl <<
+    setw(width) << "[ROS] range_scale_min: " << range_scale_min_ << endl <<
+    setw(width) << "[ROS] range_scale_max: " << range_scale_max_ << endl <<
     "[ROS] ===============================" << endl <<
     setw(width) << "[ROS] init_pos_px_x: " << filter_params.init_pos_px_x << endl <<
     setw(width) << "[ROS] init_pos_px_y: " << filter_params.init_pos_px_y << endl <<
@@ -131,9 +146,12 @@ void TopDownRender::initialize() {
     setw(width) << "[ROS] init_pos_deg_theta: " << filter_params.init_pos_deg_theta << endl <<
     setw(width) << "[ROS] init_pos_deg_cov: " << filter_params.init_pos_deg_cov << endl <<
     "[ROS] ===============================" << endl <<
+    setw(width) << "[ROS] map_frame: " << map_frame_ << endl <<
+    setw(width) << "[ROS] map_viz_frame: " << map_viz_frame_ << endl <<
+    setw(width) << "[ROS] use_motion_prior: " << use_motion_prior << endl <<
     setw(width) << "[ROS] svg_origin_x: " << svg_origin_x << endl <<
     setw(width) << "[ROS] svg_origin_y: " << svg_origin_y << endl <<
-    setw(width) << "[ROS] map_pub_scale_: " << map_pub_scale_ << endl <<
+    setw(width) << "[ROS] map_pub_scale: " << map_pub_scale_ << endl <<
     "[ROS] ====== End Configuration ======" << "\033[0m");
 }
 
@@ -154,10 +172,9 @@ TopDownMap::Params TopDownRender::getTopDownMapParams(
   params.num_classes = class_params.flattened_to_class.size();
 
   params.exclusive_classes.resize(params.num_classes);
-  int flattened_id = 0;
   for (int class_id : class_params.flattened_to_class) {
     if (class_params.exclusivity[class_id]) {
-      params.exclusive_classes.push_back(flattened_id);
+      params.exclusive_classes.push_back(class_params.class_to_flattened[class_id]);
     }
   }
 
@@ -177,21 +194,37 @@ FilterParams TopDownRender::getFilterParams(
   nh_.param<float>("filter_pos_cov", filter_params.pos_cov, 0.3);
   nh_.param<float>("filter_theta_cov", filter_params.theta_cov, M_PI/100);
   nh_.param<float>("filter_regularization", filter_params.regularization, 0.15);
-  filter_params.fixed_scale = map_params.resolution;
 
   nh_.param<float>("conf_factor", conf_factor_, 1);
 
-  nh_.param<float>("init_pos_px_x", filter_params.init_pos_px_x, -1);
-  nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
+  std::string tmp_ext_buf;
+  nh_.getParam("init_pos_px_x", tmp_ext_buf);
+  if (tmp_ext_buf == "none") {
+    filter_params.init_pos_px_x = -1;
+    filter_params.init_pos_px_y = -1;
+  } else {
+    nh_.param<float>("init_pos_px_x", filter_params.init_pos_px_x, -1);
+    nh_.param<float>("init_pos_px_y", filter_params.init_pos_px_y, -1);
+  }
   nh_.param<float>("init_pos_px_cov", filter_params.init_pos_px_cov, -1);
 
   constexpr float inf = std::numeric_limits<float>::infinity();
-  nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
-  nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
+  nh_.getParam("init_pos_m_x", tmp_ext_buf);
+  if (tmp_ext_buf == "none") {
+    filter_params.init_pos_m_x = inf;
+    filter_params.init_pos_m_y = inf;
+  } else {
+    nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
+    nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
+  }
   nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
   nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
 
-  int flattened_id = 0;
+  nh_.param<bool>("filter_force_on_map", filter_params.force_on_map, false);
+  filter_params.fixed_scale = map_params.resolution;
+  nh_.param<float>("filter_scale_log_min", filter_params.scale_log_min, -0.1);
+  nh_.param<float>("filter_scale_log_max", filter_params.scale_log_max, 1);
+
   for (int class_id : class_params.flattened_to_class) {
     filter_params.class_weights.push_back(class_params.loc_weight[class_id]);
   }
@@ -291,15 +324,14 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   Eigen::Vector2f motion_priort = motion_prior.translation().head<2>();
   Eigen::Vector3f proj_rot = motion_prior.rotation() * Eigen::Vector3f::UnitX();
   float motion_priora = std::atan2(proj_rot[1], proj_rot[0]);
-  ROS_INFO_STREAM(motion_priort << ", " << motion_priora);
+  ROS_INFO_STREAM("\033[36m" << "[XView] Motion Prior trans:" << motion_priort.transpose() << 
+      ", rot: " << motion_priora << "\033[0m");
   filter_->propagate(motion_priort, motion_priora);
-  ROS_DEBUG("Filter propagate");
 
   filter_->update(top_down, top_down_geo, res);
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
-  ROS_INFO_STREAM("Filter update " << dur.count() << " ms");
-  ROS_DEBUG("test");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Filter update " << dur.count() << " ms" << "\033[0m");
 
   cv::Mat background_copy = background_img_.clone();
   filter_->visualize(background_copy);
@@ -325,9 +357,9 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
 
 void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
                                const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
-  ROS_INFO_STREAM("pc cb");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Received Point Cloud" << "\033[0m");
   if (!map_->haveMap()) {
-    ROS_WARN_STREAM("No map received yet");
+    ROS_WARN_STREAM("[XView] No map received yet");
     return;  
   }
 
@@ -356,9 +388,9 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
     top_down_geo.push_back(img);
   }
 
-  ROS_INFO_STREAM("Starting render");
-  renderer_->renderSemanticTopDown(cloud_ptr, current_res_, 2*M_PI/100, top_down);
-  //renderer_->renderGeometricTopDown(cloud, current_res_, 2*M_PI/100, top_down_geo);
+  ROS_INFO_STREAM("\033[36m" << "[XView] Starting Render" << "\033[0m");
+  renderer_->renderSemanticTopDown(cloud_ptr, current_range_scale_, 2*M_PI/100, top_down);
+  //renderer_->renderGeometricTopDown(cloud, current_range_scale_, 2*M_PI/100, top_down_geo);
 
   //convert pointcloud header to ROS header
   publishSemanticTopDown(top_down, cloud_msg->header);
@@ -366,7 +398,7 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start);
-  ROS_INFO_STREAM("Render took " << dur.count() << " ms");
+  ROS_INFO_STREAM("\033[36m" << "[XView] Render took " << dur.count() << " ms" << "\033[0m");
   
   //Compute delta motion
   Eigen::Affine3d motion_prior_eig = Eigen::Affine3d::Identity();
@@ -377,16 +409,20 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   last_prior_pose_ = motion_prior_eig.cast<float>();
 
   //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
-  updateFilter(top_down, top_down_geo, current_res_, delta_pose, cloud_msg->header);
+  updateFilter(top_down, top_down_geo, current_range_scale_, delta_pose, cloud_msg->header);
   Eigen::Matrix4f cov;
   filter_->computeMeanCov(cov);
 
-  if (std::max(cov(0,0), cov(1,1)) > 15 && current_res_ < 4) {
+  float scale = filter_->scale();
+  float scale_2 = scale*scale;
+  if (std::max(cov(0,0), cov(1,1))/scale_2 > std::pow(target_uncertainty_m_, 2) && 
+      current_range_scale_ < range_scale_max_) 
+  {
     //cov big, expand local region
-    current_res_ += 0.05;
-  } else if (current_res_ > 0.5) {
+    current_range_scale_ += 0.05;
+  } else if (current_range_scale_ > range_scale_min_) {
     //we gucci, shrink to refine
-    current_res_ -= 0.02;
+    current_range_scale_ -= 0.02;
   }
 
   if (filter_->numParticles() < 1) {
@@ -398,16 +434,13 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   Eigen::Vector4f ml_state;
   filter_->meanLikelihood(ml_state);
 
-  ROS_INFO_STREAM("scale uncertainty: " << cov(3,3));
   if (cov(3,3) < 0.003*ml_state[3]) {
     //freeze scale
-    ROS_INFO_STREAM("scale: " << ml_state[3]);
+    ROS_INFO_STREAM("\033[36m" << "[XView] Fixed Scale: " << ml_state[3] << "\033[0m");
     filter_->freezeScale();
   }
 
   //Only publish if converged to unimodal dist
-  float scale = filter_->scale();
-  float scale_2 = scale*scale;
   if (cov(0,0)/scale_2 < 40 && cov(1,1)/scale_2 < 40 && cov(2,2) < 0.5 && filter_->scale() > 0) {
     is_converged_ = true;
   }
@@ -415,7 +448,7 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
   if (is_converged_) {
     geometry_msgs::PoseWithCovarianceStamped pose;
     pose.header = cloud_msg->header;
-    pose.header.frame_id = "world";
+    pose.header.frame_id = map_frame_;
 
     std_msgs::Float32 scale_msg;
     scale_msg.data = scale;
@@ -448,8 +481,8 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
 
   geometry_msgs::TransformStamped map_svg_transform;
   map_svg_transform.header.stamp = cloud_msg->header.stamp;
-  map_svg_transform.header.frame_id = "world";
-  map_svg_transform.child_frame_id = "sem_map";
+  map_svg_transform.header.frame_id = map_frame_;
+  map_svg_transform.child_frame_id = map_viz_frame_;
   map_svg_transform.transform.translation.x = (background_img_.size().width/2-map_center_.x)/scale;
   map_svg_transform.transform.translation.y = -(background_img_.size().height/2-map_center_.y)/scale;
   map_svg_transform.transform.translation.z = -2;
@@ -495,7 +528,7 @@ void TopDownRender::processMapBuffers() {
       ROS_INFO_STREAM("Got new map");
       //Convert to cv and rotate
       cv::Mat map_img;
-      cv::rotate(cv_bridge::toCvShare(img->second, sensor_msgs::image_encodings::BGR8)->image, 
+      cv::rotate(cv_bridge::toCvShare(img->second, sensor_msgs::image_encodings::MONO8)->image, 
           map_img, cv::ROTATE_90_CLOCKWISE);
 
       color_lut_.ind2Color(map_img, background_img_);

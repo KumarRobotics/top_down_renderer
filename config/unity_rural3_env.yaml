@@ -1,8 +1,0 @@
-map_path: "$(find top_down_render)/maps/unity_rural3_env"
-use_raster: False
-svg_res: 2.5
-svg_origin_x: 458
-svg_origin_y: 363
-init_pos_px_x: 458
-init_pos_px_y: 363
-init_pos_px_cov: 50

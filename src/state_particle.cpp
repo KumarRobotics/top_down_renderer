@@ -161,15 +161,19 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
 
   Eigen::Vector2f center(state_.dx_m*state_.scale + state_.init_x_px, 
                          state_.dy_m*state_.scale + state_.init_y_px);
-  //Don't force on map
-  //if (center[0] < 0 || center[1] < 0 || center[0] > width_ || center[1] > height_ ||
-  //    state_.scale < std::pow(10, -0.1) || state_.scale > std::pow(10, 1)) {
-  //  weight_ = 0;
-  //  return;
-  //}
-  if (state_.scale < std::pow(10, -0.1) || state_.scale > std::pow(10, 1)) {
-    weight_ = 0;
-    return;
+  if (params_->force_on_map) {
+    if (center[0] < 0 || center[1] < 0 || center[0] > width_ || center[1] > height_) {
+      weight_ = 0;
+      return;
+    }
+  }
+  if (params_->fixed_scale < 0) {
+    if (state_.scale < std::pow(10, params_->scale_log_min) || 
+        state_.scale > std::pow(10, params_->scale_log_max)) 
+    {
+      weight_ = 0;
+      return;
+    }
   }
 
   std::vector<Eigen::ArrayXXf> classes;
