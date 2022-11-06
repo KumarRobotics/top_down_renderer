@@ -2,6 +2,8 @@
 <launch>
   <arg name="simulation" default="False"/>
   <arg name="output" default="screen"/>
+  <arg name="motion_prior_topic" default="os_node/rofl_odom/pose"/>
+  <arg name="aerial_map_ns" default="titan"/>
 
   <arg name="world_config_path" default="$(find semantics_manager)/config/config.yaml"/>
   <arg name="init_param_path" default="$(find top_down_render)/config/init_conditions_default.yaml"/>
@@ -28,10 +30,10 @@
     <!-- Remappings -->
     <remap from="~/pc" to="os_node/segmented_point_cloud"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
-    <remap from="~/map_image" to="/titan/asoom/map_sem_img"/>
-    <remap from="~/map_loc" to="/titan/asoom/map_sem_img_center"/>
+    <remap from="~/map_image" to="/$(arg aerial_map_ns)/asoom/map_sem_img"/>
+    <remap from="~/map_loc" to="/$(arg aerial_map_ns)/asoom/map_sem_img_center"/>
     <remap from="~/pose_est" to="spomp_mapper/global_est"/>
-    <remap from="~/motion_prior" to="os_node/rofl_odom/pose"/>
+    <remap from="~/motion_prior" to="$(arg motion_prior_topic)"/>
 
     <!-- Params -->
     <param name="world_config_path" value="$(arg world_config_path)"/>
