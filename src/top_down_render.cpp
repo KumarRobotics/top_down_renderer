@@ -88,7 +88,14 @@ void TopDownRender::initialize() {
   map_ = new TopDownMapPolar(top_down_map_params);
 
   // Scaling factor for visualization
-  nh_.param<float>("map_pub_scale", map_pub_scale_, 0.2);
+  float map_pub_resolution = 1;
+  nh_.param<float>("map_pub_resolution", map_pub_resolution, 1);
+  if (filter_params.fixed_scale > 0) {
+    map_pub_scale_ = map_pub_resolution / filter_params.fixed_scale;
+  } else {
+    // If we don't know the scale now, then just publish at native
+    map_pub_scale_ = 1;
+  }
 
   if (map_params.dynamic) {
     map_image_sub_ = nh_.subscribe<sensor_msgs::Image>("map_image", 1,
