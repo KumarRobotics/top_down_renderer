@@ -53,8 +53,9 @@ TopDownMap::TopDownMap(const TopDownMap::Params& params) {
     getGeoRasterMap(geo_maps_);
 
     // Do this after so we can reuse maps
-    computeDists(class_maps_);
-    computeDists(geo_maps_);
+    computeDists(class_maps_, class_mask_);
+    Eigen::ArrayXXc tmp;
+    computeDists(geo_maps_, tmp);
     ROS_INFO_STREAM("\033[32m" << "[XView] Map Loading Complete" << "\033[0m");
 
     saveCachedMaps(params_.map_path);
@@ -152,7 +153,7 @@ void TopDownMap::updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center
     ROS_WARN("[XView] Received map with no road");
   }
 
-  computeDists(class_maps_);
+  computeDists(class_maps_, class_mask_);
 }
 
 void TopDownMap::getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes) {
@@ -254,6 +255,9 @@ void TopDownMap::loadCachedMaps() {
     read_binary(name, geo_map);
     geo_maps_.push_back(geo_map);
   }
+
+  std::string name = std::string(getenv("HOME")) + "/.ros/xview_cache/class_mask.eig";
+  read_binary(name, class_mask_);
 }
 
 void TopDownMap::saveCachedMaps(const std::string &map_path) {
@@ -276,20 +280,23 @@ void TopDownMap::saveCachedMaps(const std::string &map_path) {
     std::string name = std::string(getenv("HOME")) + "/.ros/xview_cache/geo_map" + std::to_string(cls) + ".eig";
     write_binary(name, geo_maps_[cls]);
   }
+
+  std::string name = std::string(getenv("HOME")) + "/.ros/xview_cache/class_mask.eig";
+  write_binary(name, class_mask_);
 }
 
 //For each cell, compute the distance to other cells
-void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
+void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes, Eigen::ArrayXXc &mask) {
   ROS_INFO_STREAM("\033[32m" << "[XView] Computing distance maps..." << "\033[0m");
 
   auto start = std::chrono::high_resolution_clock::now();
   //Compute all locations with no known class
-  Eigen::Array<uint8_t, Eigen::Dynamic, Eigen::Dynamic> class_mask = 
-      Eigen::Array<uint8_t, Eigen::Dynamic, Eigen::Dynamic>::Zero(classes[0].rows(), classes[0].cols()); 
+  mask = Eigen::ArrayXXc::Zero(classes[0].rows(), classes[0].cols()); 
   for (int cls_id=0; cls_id<classes.size(); cls_id++) {
-    class_mask += classes[cls_id].cast<uint8_t>();
+    mask += classes[cls_id].cast<uint8_t>();
   }
-  cv::Mat mask_mat(class_mask.cols(), class_mask.rows(), CV_8UC1, (void*)class_mask.data());
+  cv::Mat mask_mat(mask.cols(), mask.rows(), CV_8UC1, (void*)mask.data());
+  cv::threshold(mask_mat, mask_mat, classes.size()-1, 255, cv::THRESH_BINARY);
 
   for (int cls_id=0; cls_id<classes.size(); cls_id++) {
     //Copy class buffer
@@ -299,18 +306,19 @@ void TopDownMap::computeDists(std::vector<Eigen::ArrayXXf> &classes) {
     class_mat.convertTo(binary_class_mat, CV_8UC1);
 
     //When we write to this, we modify the original data
-    cv::Mat dist_mat(classes[cls_id].cols(), classes[cls_id].rows(), CV_32FC1, (void*)classes[cls_id].data());
+    cv::Mat dist_mat(classes[cls_id].cols(), classes[cls_id].rows(), CV_32FC1, 
+        (void*)classes[cls_id].data());
 
     cv::distanceTransform(binary_class_mat, dist_mat, cv::DIST_L2, cv::DIST_MASK_PRECISE);
     //Normalize by map res and thresh
     dist_mat *= params_.resolution;
     cv::threshold(dist_mat, dist_mat, 50, 0, cv::THRESH_TRUNC);
 
-    cv::threshold(mask_mat, mask_mat, classes.size()-1, 255, cv::THRESH_BINARY);
-    dist_mat.setTo(params_.out_of_bounds_const, mask_mat); 
+    dist_mat.setTo(/*params_.out_of_bounds_const*/ 0, mask_mat); 
 
     ROS_INFO_STREAM("\033[32m" << "[XView] Distance map for class " << cls_id << " complete" << "\033[0m");
   }
+  mask /= 255;
 
   auto end = std::chrono::high_resolution_clock::now();
   ROS_INFO_STREAM("\033[32m" << "[XView] Distance maps computed" << "\033[0m");
@@ -418,7 +426,9 @@ void TopDownMap::getGeoRasterMap(std::vector<Eigen::ArrayXXf> &geo_cls) {
   geo_cls[0] = 1-geo_cls[1];
 }
 
-void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
+void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, 
+    std::vector<Eigen::ArrayXXf> &dists, Eigen::ArrayXXc &mask) 
+{
   if (dists.size() < 1) return;
   Eigen::Array2Xf pts(2, dists[0].rows()*dists[0].cols());
   samplePts(center/params_.resolution, rot, pts, dists[0].cols(), dists[0].rows(), res/params_.resolution);
@@ -432,13 +442,25 @@ void TopDownMap::getLocalMap(Eigen::Vector2f center, float rot, float res, std::
           pts_int(1, idx) >= 0 && pts_int(1, idx) < class_maps_[cls].cols()) {
         dists[cls](idx) = class_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = params_.out_of_bounds_const;
+        dists[cls](idx) = 0; //params_.out_of_bounds_const;
       }
+    }
+  }
+
+  for (int idx=0; idx<dists[0].rows()*dists[0].cols(); idx++) {
+    if (pts_int(0, idx) >= 0 && pts_int(0, idx) < class_mask_.rows() &&
+        pts_int(1, idx) >= 0 && pts_int(1, idx) < class_mask_.cols()) {
+      mask(idx) = class_mask_(pts_int(0, idx), pts_int(1, idx));
+    } else {
+      // out of bounds
+      mask(idx) = 1;
     }
   }
 }
 
-void TopDownMap::getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists) {
+void TopDownMap::getLocalGeoMap(Eigen::Vector2f center, float rot, float res, 
+    std::vector<Eigen::ArrayXXf> &dists) 
+{
   if (dists.size() < 1) return;
   Eigen::Array2Xf pts(2, dists[0].rows()*dists[0].cols());
   samplePts(center/params_.resolution, rot, pts, dists[0].cols(), dists[0].rows(), res/params_.resolution);
@@ -452,7 +474,7 @@ void TopDownMap::getLocalGeoMap(Eigen::Vector2f center, float rot, float res, st
           pts_int(1, idx) >= 0 && pts_int(1, idx) < geo_maps_[cls].cols()) {
         dists[cls](idx) = geo_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = params_.out_of_bounds_const;
+        dists[cls](idx) = 0; //params_.out_of_bounds_const;
       }
     }
   }

@@ -65,7 +65,8 @@ class TopDownMap {
     void updateMap(const cv::Mat &map, const Eigen::Vector2i &map_center);
     void getClassesAtPoint(const Eigen::Vector2f &center, std::vector<int> &classes);
     void getClassesAtPoint(const Eigen::Vector2i &center_ind, std::vector<int> &classes);
-    void getLocalMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
+    void getLocalMap(Eigen::Vector2f center, float rot, float res, 
+        std::vector<Eigen::ArrayXXf> &dists, Eigen::ArrayXXc &mask);
     void getLocalGeoMap(Eigen::Vector2f center, float rot, float res, std::vector<Eigen::ArrayXXf> &dists);
     Eigen::Vector2i size() const;
     Eigen::Vector2i mapCenter() const;
@@ -74,6 +75,7 @@ class TopDownMap {
     bool haveMap() const;
   protected:
     std::vector<Eigen::ArrayXXf> class_maps_;
+    Eigen::ArrayXXc class_mask_;
     std::vector<Eigen::ArrayXXf> geo_maps_;
 
     Params params_;
@@ -91,7 +93,7 @@ class TopDownMap {
     void getRasterMap(const Eigen::Vector2i& map_size, float rot, float res,
         std::vector<std::vector<std::vector<Eigen::Vector2f>>> &poly);
     void getGeoRasterMap(std::vector<Eigen::ArrayXXf> &geo_cls);
-    void computeDists(std::vector<Eigen::ArrayXXf> &classes);
+    void computeDists(std::vector<Eigen::ArrayXXf> &classes, Eigen::ArrayXXc &mask);
     void getClasses(Eigen::Ref<Eigen::Array2Xf> pts, 
         const std::vector<std::vector<std::vector<Eigen::Vector2f>>> &poly,
         std::vector<Eigen::ArrayXXf>& classes);

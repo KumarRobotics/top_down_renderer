@@ -108,12 +108,35 @@ void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan,
   std::for_each(std::execution::par, particles_.begin(), particles_.end(), 
                 std::bind(&StateParticle::computeWeight, std::placeholders::_1, top_down_scan, top_down_geo, res));
 
-  weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(particles_.size())/particles_.size();
+  weights_ = Eigen::Matrix<float, 1, Eigen::Dynamic>::Ones(particles_.size());
+  float sum = 0;
+  int num_valid = 0;
   for (int i; i<particles_.size(); i++) {
     weights_[i] = particles_[i]->weight();
+    if (!isnan(weights_[i])) {
+      sum += weights_[i];
+      ++num_valid;
+    }
   }
-  ROS_INFO_STREAM("\033[36m" << "[XView] Particle weight sum: " << weights_.sum() << "\033[0m");
-  weights_ = weights_/weights_.sum(); //Renormalize
+  float mean = sum / num_valid;
+  float bottom_stddev = 0;
+  int num_under = 0;
+  for (int i; i<particles_.size(); i++) {
+    if (!isnan(weights_[i]) && weights_[i] < mean) {
+      bottom_stddev += std::pow(weights_[i] - mean, 2);
+      ++num_under;
+    }
+  }
+  bottom_stddev = std::sqrt(bottom_stddev / num_under);
+
+  ROS_INFO_STREAM("\033[36m" << "[XView] Particle weight sum: " << sum << "\033[0m");
+  if (sum == 0 || num_under < 1) {
+    weights_.setConstant(1);
+  } else {
+    // Set unknown particle weights to slightly less than mean
+    weights_ = weights_.array().isNaN().select(mean - bottom_stddev, weights_);
+  }
+  weights_ = weights_/weights_.sum(); //Normalize
 
   //Regularize weights based on distance travelled
   for (int i; i<particles_.size(); i++) {

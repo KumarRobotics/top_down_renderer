@@ -7,19 +7,11 @@ TopDownRender::TopDownRender(ros::NodeHandle &nh) {
 
 void TopDownRender::initialize() {
   last_prior_pose_ = Eigen::Affine3f::Identity();
-  bool use_motion_prior;
-  nh_.param<bool>("use_motion_prior", use_motion_prior, false);
-  if (use_motion_prior) {
-    pc_sync_sub_ = new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh_, "pc", 50);
-    motion_prior_sync_sub_ = new message_filters::Subscriber<geometry_msgs::PoseStamped>(nh_, "motion_prior", 50);
-    scan_sync_sub_ = new message_filters::TimeSynchronizer<sensor_msgs::PointCloud2, geometry_msgs::PoseStamped>(
-                      *pc_sync_sub_, *motion_prior_sync_sub_, 50);
-    scan_sync_sub_->registerCallback(&TopDownRender::pcCallback, this);
-  } else {
-    pc_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("pc", 10, 
-                std::bind(&TopDownRender::pcCallback, this, std::placeholders::_1, 
-                          geometry_msgs::PoseStamped::ConstPtr()));
-  }
+  nh_.param<bool>("use_motion_prior", use_motion_prior_, false);
+  pc_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>(
+      "pc", 10, &TopDownRender::pcCallback, this);
+  motion_prior_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
+      "motion_prior", 10, &TopDownRender::motionPriorCallback, this);
 
   gt_pose_ = Eigen::Affine2f::Identity();
   gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, 
@@ -155,7 +147,7 @@ void TopDownRender::initialize() {
     "[ROS] ===============================" << endl <<
     setw(width) << "[ROS] map_frame: " << map_frame_ << endl <<
     setw(width) << "[ROS] map_viz_frame: " << map_viz_frame_ << endl <<
-    setw(width) << "[ROS] use_motion_prior: " << use_motion_prior << endl <<
+    setw(width) << "[ROS] use_motion_prior: " << use_motion_prior_ << endl <<
     setw(width) << "[ROS] svg_origin_x: " << svg_origin_x << endl <<
     setw(width) << "[ROS] svg_origin_y: " << svg_origin_y << endl <<
     setw(width) << "[ROS] map_pub_scale: " << map_pub_scale_ << endl <<
@@ -307,7 +299,8 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
     Eigen::ArrayXXf cls(h, w);
     classes.push_back(cls);
   }
-  map->getLocalMap(center, 0, res, classes);
+  Eigen::ArrayXXc mask(h, w);
+  map->getLocalMap(center, 0, res, classes, mask);
 
   //Invert for viz
   //for (int i=0; i<classes.size(); i++) {
@@ -362,8 +355,32 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   map_pub_.publish(img_msg);
 }
 
-void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
-                               const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
+void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg) {
+  if (!use_motion_prior_) {
+    takeStep(cloud_msg, {});
+    return;
+  }
+
+  // Loop starting with most recent
+  for (auto mp_it = motion_prior_buf_.rbegin(); mp_it != motion_prior_buf_.rend(); ++mp_it) {
+    if (cloud_msg->header.stamp == (*mp_it)->header.stamp) {
+      takeStep(cloud_msg, *mp_it);
+      motion_prior_buf_.erase(motion_prior_buf_.begin(), mp_it.base());
+      break;
+    }
+  }
+}
+
+void TopDownRender::motionPriorCallback(
+    const geometry_msgs::PoseStamped::ConstPtr &motion_prior) 
+{
+  if (use_motion_prior_) {
+    motion_prior_buf_.push_back(motion_prior);
+  }
+}
+
+void TopDownRender::takeStep(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg,
+                             const geometry_msgs::PoseStamped::ConstPtr& motion_prior) {
   ROS_INFO_STREAM("\033[36m" << "[XView] Received Point Cloud" << "\033[0m");
   if (!map_->haveMap()) {
     ROS_WARN_STREAM("[XView] No map received yet");

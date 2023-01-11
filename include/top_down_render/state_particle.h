@@ -63,10 +63,11 @@ class StateParticle {
 
     FilterParams *params_;
 
-    float getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
-                        std::vector<Eigen::ArrayXXf> &top_down_geo,
-                        std::vector<Eigen::ArrayXXf> &classes,
-                        std::vector<Eigen::ArrayXXf> &geo_cls, float rot);
+    float getCostForRot(const std::vector<Eigen::ArrayXXf> &top_down_scan,
+                        const std::vector<Eigen::ArrayXXf> &top_down_geo,
+                        const std::vector<Eigen::ArrayXXf> &classes,
+                        const std::vector<Eigen::ArrayXXf> &geo_cls, 
+                        const Eigen::ArrayXXf &mask, float rot);
 };
 
 #endif //STATE_PARTICLE_H_

@@ -40,9 +40,7 @@ class TopDownRender {
     image_transport::ImageTransport *it_;
     tf2_ros::TransformBroadcaster *tf2_broadcaster_;
     ros::Subscriber pc_sub_;
-    message_filters::Subscriber<sensor_msgs::PointCloud2> *pc_sync_sub_;
-    message_filters::Subscriber<geometry_msgs::PoseStamped> *motion_prior_sync_sub_;
-    message_filters::TimeSynchronizer<sensor_msgs::PointCloud2, geometry_msgs::PoseStamped> *scan_sync_sub_;
+    ros::Subscriber motion_prior_sub_;
 
     ros::Subscriber map_image_sub_;
     ros::Subscriber map_loc_sub_;
@@ -69,9 +67,11 @@ class TopDownRender {
     long last_map_stamp_ = 0;
     std::map<long, const sensor_msgs::Image::ConstPtr> map_image_buf_;
     std::map<long, const geometry_msgs::PointStamped::ConstPtr> map_loc_buf_;
+    std::list<geometry_msgs::PoseStamped::ConstPtr> motion_prior_buf_;
 
     std::string map_frame_ = "map";
     std::string map_viz_frame_ = "sem_map";
+    bool use_motion_prior_ = false;
 
     float map_pub_scale_ = 1;
     float conf_factor_ = 1;
@@ -97,8 +97,10 @@ class TopDownRender {
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
                       std::vector<Eigen::ArrayXXf> &top_down_geo, float res, 
                       Eigen::Affine3f &motion_prior, const std_msgs::Header &header);
-    void pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg, 
-                    const geometry_msgs::PoseStamped::ConstPtr &motion_prior);
+    void pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg);
+    void motionPriorCallback(const geometry_msgs::PoseStamped::ConstPtr &motion_prior); 
+    void takeStep(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg, 
+                  const geometry_msgs::PoseStamped::ConstPtr &motion_prior);
     void mapImageCallback(const sensor_msgs::Image::ConstPtr &map);
     void mapLocCallback(const geometry_msgs::PointStamped::ConstPtr &map_loc);
     void processMapBuffers();

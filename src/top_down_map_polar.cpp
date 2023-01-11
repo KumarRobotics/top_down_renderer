@@ -20,7 +20,8 @@ void TopDownMapPolar::samplePtsPolar(Eigen::Vector2i shape, float ang_res) {
 
 void TopDownMapPolar::getLocalMap(Eigen::Vector2f center, 
                                   float scale, float res, 
-                                  std::vector<Eigen::ArrayXXf> &dists) {
+                                  std::vector<Eigen::ArrayXXf> &dists,
+                                  Eigen::ArrayXXc &mask) {
   if (dists.size() < 1) return;
 
   //Generate list of indices
@@ -35,8 +36,18 @@ void TopDownMapPolar::getLocalMap(Eigen::Vector2f center,
           pts_int(1, idx) >= 0 && pts_int(1, idx) < class_maps_[cls].cols()) {
         dists[cls](idx) = class_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = params_.out_of_bounds_const;
+        dists[cls](idx) = 0; //params_.out_of_bounds_const;
       }
+    }
+  }
+
+  for (int idx=0; idx<dists[0].rows()*dists[0].cols(); idx++) {
+    if (pts_int(0, idx) >= 0 && pts_int(0, idx) < class_mask_.rows() &&
+        pts_int(1, idx) >= 0 && pts_int(1, idx) < class_mask_.cols()) {
+      mask(idx) = class_mask_(pts_int(0, idx), pts_int(1, idx));
+    } else {
+      // out of bounds
+      mask(idx) = 1;
     }
   }
 }
@@ -58,15 +69,16 @@ void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center,
           pts_int(1, idx) >= 0 && pts_int(1, idx) < geo_maps_[cls].cols()) {
         dists[cls](idx) = geo_maps_[cls](pts_int(0, idx), pts_int(1, idx));
       } else {
-        dists[cls](idx) = params_.out_of_bounds_const;
+        dists[cls](idx) = 0; //params_.out_of_bounds_const;
       }
     }
   }
 }
 
 void TopDownMapPolar::getLocalMap(Eigen::Vector2f center, float res,
-                                  std::vector<Eigen::ArrayXXf> &dists) {
-  getLocalMap(center, 1, res, dists);
+                                  std::vector<Eigen::ArrayXXf> &dists,
+                                  Eigen::ArrayXXc &mask) {
+  getLocalMap(center, 1, res, dists, mask);
 }
 
 void TopDownMapPolar::getLocalGeoMap(Eigen::Vector2f center, float res,

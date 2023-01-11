@@ -24,8 +24,9 @@ void ActiveLocalizer::getLocalMap(Eigen::Vector3f &state, std::vector<Eigen::Arr
   for (int n=0; n<map_->numClasses(); n++) {
     local_map_orig.push_back(Eigen::ArrayXXf(100, 25));
   }
+  Eigen::ArrayXXc mask(100, 25);
 
-  map_->getLocalMap(state.head<2>(), 2, local_map_orig);
+  map_->getLocalMap(state.head<2>(), 2, local_map_orig, mask);
 
   int num_bins = local_map[0].rows();
   int rot_shift = static_cast<int>(std::round(state[2]*num_bins/2/M_PI));

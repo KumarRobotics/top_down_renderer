@@ -60,17 +60,15 @@ void StateParticle::propagate(Eigen::Vector2f &trans, float omega, bool scale_fr
   state_.dx_m += trans_global[0];
   state_.dy_m += trans_global[1];
 
-  //std::normal_distribution<float> disp_dist{0, 0.5};
-  //std::normal_distribution<float> theta_dist{0, M_PI/30};
-  std::normal_distribution<float> disp_dist{0, params_->pos_cov};
-  std::normal_distribution<float> theta_dist{0, params_->theta_cov};
+  float dist = trans_global.norm();
+  std::normal_distribution<float> disp_dist{0, params_->pos_cov*dist};
+  std::normal_distribution<float> theta_dist{0, params_->theta_cov*dist};
 
   state_.theta += theta_dist(*gen_) + omega;
   state_.dx_m += disp_dist(*gen_);
   state_.dy_m += disp_dist(*gen_);
 
   if (!scale_freeze) {
-    float dist = std::sqrt(std::pow(state_.dx_m, 2) + std::pow(state_.dy_m, 2));
     std::normal_distribution<float> scale_dist{1, static_cast<float>(std::min(2./dist, 0.02))};
     state_.scale *= scale_dist(*gen_);
   }
@@ -111,10 +109,16 @@ float StateParticle::lastDist() const {
   return last_dist_;
 }
 
-float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
-                                   std::vector<Eigen::ArrayXXf> &top_down_geo,
-                                   std::vector<Eigen::ArrayXXf> &classes,
-                                   std::vector<Eigen::ArrayXXf> &geo_cls, float rot) {
+float StateParticle::getCostForRot(const std::vector<Eigen::ArrayXXf> &top_down_scan,
+                                   const std::vector<Eigen::ArrayXXf> &top_down_geo,
+                                   const std::vector<Eigen::ArrayXXf> &classes,
+                                   const std::vector<Eigen::ArrayXXf> &geo_cls, 
+                                   const Eigen::ArrayXXf &mask, float rot) {
+  if (static_cast<float>(mask.sum())/mask.size() < 0.5) {
+    // Too much unknown
+    return std::numeric_limits<float>::quiet_NaN();
+  }
+
   //number of bins to shift by
   int num_bins = top_down_scan[0].rows();
   int rot_shift = static_cast<int>(std::round(rot*num_bins/2/M_PI));
@@ -133,8 +137,11 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
       0.01*params_->class_weights[i];
     cost += (top_down_scan[i].bottomRows(num_bins-rot_shift) * classes[i].topRows(num_bins-rot_shift)).sum()*
       0.01*params_->class_weights[i];
-    normalization += top_down_scan[i].sum();
+
+    normalization += (top_down_scan[i].topRows(rot_shift) * mask.bottomRows(rot_shift)).sum();
+    normalization += (top_down_scan[i].bottomRows(num_bins-rot_shift) * mask.topRows(num_bins-rot_shift)).sum();
   }
+
   /*
   for (int i=0; i<2; i++) {
     //geometric cost
@@ -144,14 +151,6 @@ float StateParticle::getCostForRot(std::vector<Eigen::ArrayXXf> &top_down_scan,
   }
   */
 
-  if (isnan(cost/normalization)) {
-    ROS_WARN("NAN");
-    ROS_WARN_STREAM("cost: " << cost << ", norm: " << normalization << ", rot: " << rot);
-    for (int i=0; i<map_->numClasses(); i++) {
-      ROS_WARN_STREAM("sum: " << top_down_scan[i].sum());
-      ROS_WARN_STREAM("weights: " << params_->class_weights[i]);
-    }
-  }
   return cost/normalization;
 }
 
@@ -184,8 +183,9 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
   for (int i=0; i<2; i++) {
     geo_cls.push_back(Eigen::ArrayXXf(top_down_scan[0].rows(), top_down_scan[0].cols()));
   }
+  Eigen::ArrayXXc mask(top_down_scan[0].rows(), top_down_scan[0].cols());
 
-  map_->getLocalMap(center, state_.scale, res, classes);
+  map_->getLocalMap(center, state_.scale, res, classes, mask);
   map_->getLocalGeoMap(center, state_.scale, res, geo_cls);
   
   auto mid = std::chrono::high_resolution_clock::now();
@@ -195,7 +195,8 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
   if (!state_.have_init) {
     //initialize
     for (float t=0; t<2*M_PI; t+=2*M_PI/40) {
-      float cost = getCostForRot(top_down_scan, top_down_geo, classes, geo_cls, t);
+      float cost = getCostForRot(top_down_scan, top_down_geo, classes, geo_cls, 
+          (1-mask.cast<float>()), t);
       if (cost < best_cost) {
         best_cost = cost; 
         best_theta = t;
@@ -204,7 +205,8 @@ void StateParticle::computeWeight(std::vector<Eigen::ArrayXXf> &top_down_scan,
     state_.theta = best_theta;
     state_.have_init = true;
   } else {
-    best_cost = getCostForRot(top_down_scan, top_down_geo, classes, geo_cls, state_.theta);
+    best_cost = getCostForRot(top_down_scan, top_down_geo, classes, geo_cls, 
+        (1-mask.cast<float>()), state_.theta);
   }
 
   weight_ = 1./(best_cost + params_->regularization);
