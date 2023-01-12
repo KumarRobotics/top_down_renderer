@@ -216,8 +216,14 @@ FilterParams TopDownRender::getFilterParams(
     nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
     nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
   }
-  nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
-  nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
+  nh_.getParam("init_pos_deg_theta", tmp_ext_buf);
+  if (tmp_ext_buf == "none") {
+    filter_params.init_pos_deg_theta = inf;
+    filter_params.init_pos_deg_cov = 10;
+  } else {
+    nh_.param<float>("init_pos_deg_theta", filter_params.init_pos_deg_theta, inf);
+    nh_.param<float>("init_pos_deg_cov", filter_params.init_pos_deg_cov, 10);
+  }
 
   nh_.param<bool>("filter_force_on_map", filter_params.force_on_map, false);
   filter_params.fixed_scale = map_params.resolution;
