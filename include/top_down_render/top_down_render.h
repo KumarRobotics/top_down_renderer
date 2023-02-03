@@ -81,6 +81,7 @@ class TopDownRender {
 
     float current_range_scale_ = 4; //m/px range
     bool is_converged_ = false;
+    bool published_pose_ = false;
 
     TopDownMap::Params getTopDownMapParams(
         const semantics_manager::ClassConfig& class_params,
@@ -92,6 +93,7 @@ class TopDownRender {
     void publishSemanticTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
     void publishGeometricTopDown(std::vector<Eigen::ArrayXXf> &top_down, const std_msgs::Header &header);
     void publishLocalMap(int h, int w, Eigen::Vector2f center, float res, const std_msgs::Header &header, TopDownMap *map);
+    void publishPoseEst(const std_msgs::Header &header);
     void visualize(std::vector<Eigen::ArrayXXf> &classes, cv::Mat &img);
     cv::Mat visualizeAnalog(Eigen::ArrayXXf &cls, float scale);
     void updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 

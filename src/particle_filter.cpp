@@ -93,13 +93,9 @@ void ParticleFilter::propagate(Eigen::Vector2f &trans, float omega) {
 
 void ParticleFilter::update(std::vector<Eigen::ArrayXXf> &top_down_scan, 
                             std::vector<Eigen::ArrayXXf> &top_down_geo, float res) {
-  if (num_particles_ == 0 && map_->haveMap()) {
-    //threads haven't started yet so don't need lock
-    initializeParticles();
-    if (num_particles_ == 0) {
-      //If still no particles, then nevermind, try again later
-      return;
-    }
+  if (num_particles_ == 0) {
+    //If no particles, then nevermind, try again later
+    return;
   }
 
   particle_lock_.lock();
@@ -337,6 +333,11 @@ void ParticleFilter::updateMap(const cv::Mat &map, const Eigen::Vector2i& map_ce
   }
   particle_lock_.unlock();
   last_map_center_ = map_center;
+
+  if (num_particles_ == 0) {
+    //threads haven't started yet so don't need lock
+    initializeParticles();
+  }
 }
 
 void ParticleFilter::freezeScale() {

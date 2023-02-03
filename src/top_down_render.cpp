@@ -17,7 +17,8 @@ void TopDownRender::initialize() {
   gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, 
       &TopDownRender::gtPoseCallback, this);
 
-  pose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_est", 1);
+  // Want to latch output
+  pose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_est", 1, true);
   scale_pub_ = nh_.advertise<std_msgs::Float32>("scale", 1);
   it_ = new image_transport::ImageTransport(nh_);
   map_pub_ = it_->advertise("map", 1);
@@ -208,6 +209,7 @@ FilterParams TopDownRender::getFilterParams(
   nh_.param<float>("init_pos_px_cov", filter_params.init_pos_px_cov, -1);
 
   constexpr float inf = std::numeric_limits<float>::infinity();
+  tmp_ext_buf = "";
   nh_.getParam("init_pos_m_x", tmp_ext_buf);
   if (tmp_ext_buf == "none") {
     filter_params.init_pos_m_x = inf;
@@ -216,6 +218,7 @@ FilterParams TopDownRender::getFilterParams(
     nh_.param<float>("init_pos_m_x", filter_params.init_pos_m_x, inf);
     nh_.param<float>("init_pos_m_y", filter_params.init_pos_m_y, inf);
   }
+  tmp_ext_buf = "";
   nh_.getParam("init_pos_deg_theta", tmp_ext_buf);
   if (tmp_ext_buf == "none") {
     filter_params.init_pos_deg_theta = inf;
@@ -322,6 +325,88 @@ void TopDownRender::publishLocalMap(int h, int w, Eigen::Vector2f center, float 
   debug_pub_.publish(img_msg);
 }
 
+void TopDownRender::publishPoseEst(const std_msgs::Header &header) {
+  Eigen::Matrix4f cov;
+  filter_->computeMeanCov(cov);
+
+  float scale = filter_->scale();
+  float scale_2 = scale*scale;
+  if (std::max(cov(0,0), cov(1,1))/scale_2 > std::pow(target_uncertainty_m_, 2) && 
+      current_range_scale_ < range_scale_max_) 
+  {
+    //cov big, expand local region
+    current_range_scale_ += 0.05;
+  } else if (current_range_scale_ > range_scale_min_) {
+    //we gucci, shrink to refine
+    current_range_scale_ -= 0.02;
+  }
+
+  if (filter_->numParticles() < 1) {
+    // Haven't converged yet
+    return;
+  }
+
+  //get mean likelihood state
+  Eigen::Vector4f ml_state;
+  filter_->meanLikelihood(ml_state);
+
+  if (cov(3,3) < 0.003*ml_state[3]) {
+    //freeze scale
+    ROS_INFO_STREAM("\033[36m" << "[XView] Fixed Scale: " << ml_state[3] << "\033[0m");
+    filter_->freezeScale();
+  }
+
+  //Only publish if converged to unimodal dist
+  if (cov(0,0)/scale_2 < 40 && cov(1,1)/scale_2 < 40 && cov(2,2) < 0.5 && filter_->scale() > 0) {
+    is_converged_ = true;
+  }
+
+  if (is_converged_) {
+    geometry_msgs::PoseWithCovarianceStamped pose;
+    pose.header = header;
+    pose.header.frame_id = map_frame_;
+
+    std_msgs::Float32 scale_msg;
+    scale_msg.data = scale;
+    scale_pub_.publish(scale_msg);
+
+    //pose
+    pose.pose.pose.position.x = (ml_state[0] - map_center_.x)/scale;
+    pose.pose.pose.position.y = (ml_state[1] - (background_img_.size().height-map_center_.y))/scale;
+    pose.pose.pose.position.z = 2;
+    pose.pose.pose.orientation.x = 0;
+    pose.pose.pose.orientation.y = 0;
+    pose.pose.pose.orientation.z = sin(ml_state[2]/2);
+    pose.pose.pose.orientation.w = cos(ml_state[2]/2);
+
+    float conf_factor_2 = conf_factor_*conf_factor_;
+
+    //cov
+    pose.pose.covariance[0] = cov(0,0)/scale_2/conf_factor_2;
+    pose.pose.covariance[1] = cov(0,1)/scale_2/conf_factor_2;
+    pose.pose.covariance[5] = cov(0,2)/scale/conf_factor_;
+    pose.pose.covariance[6] = cov(1,0)/scale_2/conf_factor_2;
+    pose.pose.covariance[7] = cov(1,1)/scale_2/conf_factor_2;
+    pose.pose.covariance[11] = cov(1,2)/scale/conf_factor_;
+    pose.pose.covariance[30] = cov(2,0)/scale/conf_factor_;
+    pose.pose.covariance[31] = cov(2,1)/scale/conf_factor_;
+    pose.pose.covariance[35] = cov(2,2)/conf_factor_2;
+
+    pose_pub_.publish(pose);
+    published_pose_ = true;
+  }
+
+  geometry_msgs::TransformStamped map_svg_transform;
+  map_svg_transform.header.stamp = header.stamp;
+  map_svg_transform.header.frame_id = map_frame_;
+  map_svg_transform.child_frame_id = map_viz_frame_;
+  map_svg_transform.transform.translation.x = (background_img_.size().width/2-map_center_.x)/scale;
+  map_svg_transform.transform.translation.y = -(background_img_.size().height/2-map_center_.y)/scale;
+  map_svg_transform.transform.translation.z = -2;
+  map_svg_transform.transform.rotation.x = 1; //identity rot
+  tf2_broadcaster_->sendTransform(map_svg_transform);
+}
+
 void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down, 
                                  std::vector<Eigen::ArrayXXf> &top_down_geo, float res,
                                  Eigen::Affine3f &motion_prior, const std_msgs::Header &header) {
@@ -380,6 +465,18 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
 void TopDownRender::motionPriorCallback(
     const geometry_msgs::PoseStamped::ConstPtr &motion_prior) 
 {
+  if (!published_pose_ && filter_->numParticles() > 0) {
+    // Publish initial position
+    publishPoseEst(motion_prior->header);
+  }
+
+  if (last_prior_pose_.matrix().isIdentity()) {
+    // Initialize the last prior pose so we are measuring relative motion
+    Eigen::Affine3d motion_prior_eig;
+    tf::poseMsgToEigen(motion_prior->pose, motion_prior_eig);
+    last_prior_pose_ = motion_prior_eig.cast<float>();
+  }
+
   if (use_motion_prior_) {
     motion_prior_buf_.push_back(motion_prior);
   }
@@ -440,84 +537,7 @@ void TopDownRender::takeStep(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg
 
   //publishLocalMap(50, 50, Eigen::Vector2f(575/2.64, 262/2.64), 1, img_header);
   updateFilter(top_down, top_down_geo, current_range_scale_, delta_pose, cloud_msg->header);
-  Eigen::Matrix4f cov;
-  filter_->computeMeanCov(cov);
-
-  float scale = filter_->scale();
-  float scale_2 = scale*scale;
-  if (std::max(cov(0,0), cov(1,1))/scale_2 > std::pow(target_uncertainty_m_, 2) && 
-      current_range_scale_ < range_scale_max_) 
-  {
-    //cov big, expand local region
-    current_range_scale_ += 0.05;
-  } else if (current_range_scale_ > range_scale_min_) {
-    //we gucci, shrink to refine
-    current_range_scale_ -= 0.02;
-  }
-
-  if (filter_->numParticles() < 1) {
-    // Haven't converged yet
-    return;
-  }
-
-  //get mean likelihood state
-  Eigen::Vector4f ml_state;
-  filter_->meanLikelihood(ml_state);
-
-  if (cov(3,3) < 0.003*ml_state[3]) {
-    //freeze scale
-    ROS_INFO_STREAM("\033[36m" << "[XView] Fixed Scale: " << ml_state[3] << "\033[0m");
-    filter_->freezeScale();
-  }
-
-  //Only publish if converged to unimodal dist
-  if (cov(0,0)/scale_2 < 40 && cov(1,1)/scale_2 < 40 && cov(2,2) < 0.5 && filter_->scale() > 0) {
-    is_converged_ = true;
-  }
-
-  if (is_converged_) {
-    geometry_msgs::PoseWithCovarianceStamped pose;
-    pose.header = cloud_msg->header;
-    pose.header.frame_id = map_frame_;
-
-    std_msgs::Float32 scale_msg;
-    scale_msg.data = scale;
-    scale_pub_.publish(scale_msg);
-
-    //pose
-    pose.pose.pose.position.x = (ml_state[0] - map_center_.x)/scale;
-    pose.pose.pose.position.y = (ml_state[1] - (background_img_.size().height-map_center_.y))/scale;
-    pose.pose.pose.position.z = 2;
-    pose.pose.pose.orientation.x = 0;
-    pose.pose.pose.orientation.y = 0;
-    pose.pose.pose.orientation.z = sin(ml_state[2]/2);
-    pose.pose.pose.orientation.w = cos(ml_state[2]/2);
-
-    float conf_factor_2 = conf_factor_*conf_factor_;
-
-    //cov
-    pose.pose.covariance[0] = cov(0,0)/scale_2/conf_factor_2;
-    pose.pose.covariance[1] = cov(0,1)/scale_2/conf_factor_2;
-    pose.pose.covariance[5] = cov(0,2)/scale/conf_factor_;
-    pose.pose.covariance[6] = cov(1,0)/scale_2/conf_factor_2;
-    pose.pose.covariance[7] = cov(1,1)/scale_2/conf_factor_2;
-    pose.pose.covariance[11] = cov(1,2)/scale/conf_factor_;
-    pose.pose.covariance[30] = cov(2,0)/scale/conf_factor_;
-    pose.pose.covariance[31] = cov(2,1)/scale/conf_factor_;
-    pose.pose.covariance[35] = cov(2,2)/conf_factor_2;
-
-    pose_pub_.publish(pose);
-  }
-
-  geometry_msgs::TransformStamped map_svg_transform;
-  map_svg_transform.header.stamp = cloud_msg->header.stamp;
-  map_svg_transform.header.frame_id = map_frame_;
-  map_svg_transform.child_frame_id = map_viz_frame_;
-  map_svg_transform.transform.translation.x = (background_img_.size().width/2-map_center_.x)/scale;
-  map_svg_transform.transform.translation.y = -(background_img_.size().height/2-map_center_.y)/scale;
-  map_svg_transform.transform.translation.z = -2;
-  map_svg_transform.transform.rotation.x = 1; //identity rot
-  tf2_broadcaster_->sendTransform(map_svg_transform);
+  publishPoseEst(cloud_msg->header);
 
   //Normal visualization
   //pcl::visualization::PCLVisualizer viewer("PCL Viewer");
