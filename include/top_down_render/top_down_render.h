@@ -12,6 +12,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <grid_map_msgs/GridMap.h>
+#include <grid_map_comp/grid_map_comp.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -42,13 +44,12 @@ class TopDownRender {
     ros::Subscriber pc_sub_;
     ros::Subscriber motion_prior_sub_;
 
-    ros::Subscriber map_image_sub_;
-    ros::Subscriber map_loc_sub_;
+    ros::Subscriber aerial_map_sub_;
 
     ros::Subscriber gt_pose_sub_;
     ros::Publisher pose_pub_;
     ros::Publisher scale_pub_;
-    image_transport::Publisher map_pub_;
+    image_transport::Publisher map_viz_pub_;
     image_transport::Publisher scan_pub_;
     image_transport::Publisher geo_scan_pub_;
     image_transport::Publisher debug_pub_;
@@ -65,8 +66,6 @@ class TopDownRender {
     ScanRendererPolar *renderer_;
 
     long last_map_stamp_ = 0;
-    std::map<long, const sensor_msgs::Image::ConstPtr> map_image_buf_;
-    std::map<long, const geometry_msgs::PointStamped::ConstPtr> map_loc_buf_;
     std::list<geometry_msgs::PoseStamped::ConstPtr> motion_prior_buf_;
 
     std::string map_frame_ = "map";
@@ -103,9 +102,7 @@ class TopDownRender {
     void motionPriorCallback(const geometry_msgs::PoseStamped::ConstPtr &motion_prior); 
     void takeStep(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg, 
                   const geometry_msgs::PoseStamped::ConstPtr &motion_prior);
-    void mapImageCallback(const sensor_msgs::Image::ConstPtr &map);
-    void mapLocCallback(const geometry_msgs::PointStamped::ConstPtr &map_loc);
-    void processMapBuffers();
+    void aerialMapCallback(const grid_map_msgs::GridMap::ConstPtr &map);
     void gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose);
 };
 

@@ -30,8 +30,7 @@
     <!-- Remappings -->
     <remap from="~/pc" to="os_node/segmented_point_cloud"/>
     <remap from="~/gt_pose" to="/unity_ros/husky/TrueState/pose"/>
-    <remap from="~/map_image" to="/$(arg aerial_map_ns)/asoom/map_sem_img"/>
-    <remap from="~/map_loc" to="/$(arg aerial_map_ns)/asoom/map_sem_img_center"/>
+    <remap from="~/aerial_map" to="/$(arg aerial_map_ns)/asoom/map"/>
     <remap from="~/pose_est" to="spomp_mapper/global_est"/>
     <remap from="~/motion_prior" to="$(arg motion_prior_topic)"/>
 

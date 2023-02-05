@@ -21,7 +21,7 @@ void TopDownRender::initialize() {
   pose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_est", 1, true);
   scale_pub_ = nh_.advertise<std_msgs::Float32>("scale", 1);
   it_ = new image_transport::ImageTransport(nh_);
-  map_pub_ = it_->advertise("map", 1);
+  map_viz_pub_ = it_->advertise("map_viz", 1);
   scan_pub_ = it_->advertise("scan", 1);
   geo_scan_pub_ = it_->advertise("geo_scan", 1);
   debug_pub_ = it_->advertise("debug", 1);
@@ -91,10 +91,8 @@ void TopDownRender::initialize() {
   }
 
   if (map_params.dynamic) {
-    map_image_sub_ = nh_.subscribe<sensor_msgs::Image>("map_image", 1,
-        &TopDownRender::mapImageCallback, this);
-    map_loc_sub_ = nh_.subscribe<geometry_msgs::PointStamped>("map_loc", 50,
-        &TopDownRender::mapLocCallback, this);
+    aerial_map_sub_ = nh_.subscribe<grid_map_msgs::GridMap>("aerial_map", 1,
+        &TopDownRender::aerialMapCallback, this);
   } else {
     // Load background map
     background_img_ = cv::imread(map_params.viz_path, cv::IMREAD_COLOR);
@@ -106,7 +104,7 @@ void TopDownRender::initialize() {
     //Publish the map image
     sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), 
         "bgr8", background_copy_small).toImageMsg();
-    map_pub_.publish(img_msg);
+    map_viz_pub_.publish(img_msg);
   }
   map_center_ = cv::Point(svg_origin_x, background_img_.size().height-svg_origin_y);
   map_->samplePtsPolar(Eigen::Vector2i(100, 25), 2*M_PI/100);
@@ -443,7 +441,7 @@ void TopDownRender::updateFilter(std::vector<Eigen::ArrayXXf> &top_down,
   //Publish visualization
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", background_copy_small).toImageMsg();
   img_msg->header = header;
-  map_pub_.publish(img_msg);
+  map_viz_pub_.publish(img_msg);
 }
 
 void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg) {
@@ -551,52 +549,25 @@ void TopDownRender::takeStep(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg
   //}
 }
 
-void TopDownRender::mapImageCallback(const sensor_msgs::Image::ConstPtr &map) {
-  if (map->header.stamp.toNSec() > last_map_stamp_) {
-    // Initial sanity check
-    if (map->height > 0 && map->width > 0) {
-      ROS_DEBUG("Got map img");
-      map_image_buf_.insert({map->header.stamp.toNSec(), map});
-      processMapBuffers();
-    }
-  }
-}
+void TopDownRender::aerialMapCallback(const grid_map_msgs::GridMap::ConstPtr &map) {
+  if (map->info.header.stamp.toNSec() <= last_map_stamp_) return;
+  if (map->info.length_x <= 0 || map->info.length_y <= 0) return;
 
-void TopDownRender::mapLocCallback(const geometry_msgs::PointStamped::ConstPtr &map_loc) {
-  if (map_loc->header.stamp.toNSec() > last_map_stamp_) {
-    ROS_DEBUG("Got map loc");
-    map_loc_buf_.insert({map_loc->header.stamp.toNSec(), map_loc});
-    processMapBuffers();
-  }
-}
+  ROS_INFO_STREAM("Got new map");
+  //Convert to cv and rotate
+  cv::Mat map_img;
+  grid_map::GridMapComp::toImage(*map, {"semantics", "", "char"}, map_img);
+  cv::rotate(map_img, map_img, cv::ROTATE_90_CLOCKWISE);
 
-void TopDownRender::processMapBuffers() {
-  // Loop starting with most recent
-  for (auto loc_it = map_loc_buf_.rbegin(); loc_it != map_loc_buf_.rend(); ++loc_it) {
-    auto img = map_image_buf_.find(loc_it->first);
-    if (img != map_image_buf_.end()) {
-      ROS_INFO_STREAM("Got new map");
-      //Convert to cv and rotate
-      cv::Mat map_img;
-      cv::rotate(cv_bridge::toCvShare(img->second, sensor_msgs::image_encodings::MONO8)->image, 
-          map_img, cv::ROTATE_90_CLOCKWISE);
+  color_lut_.ind2Color(map_img, background_img_);
 
-      color_lut_.ind2Color(map_img, background_img_);
+  Eigen::Vector2i map_loc_eig(-map->info.pose.position.x, -map->info.pose.position.y);
+  map_loc_eig *= filter_->scale();
+  map_loc_eig += Eigen::Vector2i(map_img.size().width/2, map_img.size().height/2);
 
-      Eigen::Vector2i map_loc_eig(-loc_it->second->point.x, -loc_it->second->point.y);
-      map_loc_eig *= filter_->scale();
-      map_loc_eig += Eigen::Vector2i(map_img.size().width/2, map_img.size().height/2);
-
-      map_center_ = cv::Point(map_loc_eig[0], map_img.size().height - map_loc_eig[1]);
-      filter_->updateMap(map_img, map_loc_eig);
-      last_map_stamp_ = loc_it->first;
-      
-      //Clean up buffers
-      map_image_buf_.erase(map_image_buf_.begin(), ++img);
-      map_loc_buf_.erase(map_loc_buf_.begin(), loc_it.base());
-      break;
-    }
-  }
+  map_center_ = cv::Point(map_loc_eig[0], map_img.size().height - map_loc_eig[1]);
+  filter_->updateMap(map_img, map_loc_eig);
+  last_map_stamp_ = map->info.header.stamp.toNSec();
 }
 
 void TopDownRender::gtPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& pose) {

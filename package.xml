@@ -59,6 +59,7 @@
   <depend>message_filters</depend>
   <depend>eigen_conversions</depend>
   <depend>semantics_manager</depend>
+  <depend>grid_map_comp</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

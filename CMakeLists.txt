@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   eigen_conversions
   semantics_manager
+  grid_map_comp
 )
 
 ## System dependencies are found with CMake's conventions
