@@ -91,7 +91,7 @@ void TopDownRender::initialize() {
   }
 
   if (map_params.dynamic) {
-    aerial_map_sub_ = nh_.subscribe<grid_map_msgs::GridMap>("aerial_map", 1,
+    aerial_map_sub_ = nh_.subscribe<grid_map_msgs::GridMap>("aerial_map", 5,
         &TopDownRender::aerialMapCallback, this);
   } else {
     // Load background map
@@ -348,7 +348,7 @@ void TopDownRender::publishPoseEst(const std_msgs::Header &header) {
   Eigen::Vector4f ml_state;
   filter_->meanLikelihood(ml_state);
 
-  if (cov(3,3) < 0.003*ml_state[3]) {
+  if (cov(3,3) < 0.003*ml_state[3] && !filter_->isScaleFrozen()) {
     //freeze scale
     ROS_INFO_STREAM("\033[36m" << "[XView] Fixed Scale: " << ml_state[3] << "\033[0m");
     filter_->freezeScale();

@@ -34,6 +34,7 @@ class ParticleFilter {
     void getGMM(std::vector<Eigen::Vector3f> &means, std::vector<Eigen::Matrix3f> &covs);
     void visualize(cv::Mat &img);
     void freezeScale();
+    bool isScaleFrozen() { return scale_frozen_; }
     float scale() const;
     int numParticles() const;
 
