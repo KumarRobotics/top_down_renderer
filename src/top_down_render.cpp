@@ -96,6 +96,11 @@ void TopDownRender::initialize() {
   } else {
     // Load background map
     background_img_ = cv::imread(map_params.viz_path, cv::IMREAD_COLOR);
+    if (filter_params.init_pos_px_y > 0) {
+      // Make the coordinates in image use image coord instead
+      filter_params.init_pos_px_y = background_img_.size().height - 
+        filter_params.init_pos_px_y;
+    }
 
     cv::Mat background_copy_small;
     cv::resize(background_img_, background_copy_small,
