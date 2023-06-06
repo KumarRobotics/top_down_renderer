@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-  <arg name="simulation" default="False"/>
+  <arg name="sim" default="False"/>
   <arg name="output" default="screen"/>
   <arg name="motion_prior_topic" default="os_node/rofl_odom/pose"/>
   <arg name="aerial_map_ns" default="titan"/>
@@ -56,11 +56,11 @@
     <param name="map_pub_resolution" value="$(arg map_pub_resolution)"/>
   </node>
 
-  <group if="$(eval not arg('simulation'))">
+  <group if="$(eval not arg('sim'))">
     <include file="$(find rangenet_inf)/launch/rangenet_inf.launch" pass_all_args="true"/>
   </group>
 
-  <group if="$(eval arg('simulation'))">
+  <group if="$(eval arg('sim'))">
     <node pkg="tf2_ros" type="static_transform_publisher" name="gt"
       args="0 0 0 0 0 0 husky/TrueState husky/base"/> 
   </group>
