@@ -8,6 +8,17 @@
   <arg name="world_config_path" default="$(find semantics_manager)/config/config.yaml"/>
   <arg name="init_param_path" default="$(find top_down_render)/config/init_conditions_default.yaml"/>
 
+  <!-- For manual case only -->
+  <arg name="svg_origin_x" default="0"/>
+  <arg name="svg_origin_y" default="0"/>
+  <arg name="init_pos_px_x" default="-1"/>
+  <arg name="init_pos_px_y" default="-1"/>
+  <arg name="init_pos_px_cov" default="10"/>
+  <arg name="init_pos_m_x" default="0"/>
+  <arg name="init_pos_m_y" default="0"/>
+  <arg name="init_pos_deg_theta" default="0"/>
+  <arg name="init_pos_deg_cov" default="5"/>
+
   <arg name="particle_count" default="300"/>
   <arg name="filter_pos_cov" default="0.15"/>
   <arg name="filter_theta_cov" default="0.004"/>
@@ -35,7 +46,18 @@
 
     <!-- Params -->
     <param name="world_config_path" value="$(arg world_config_path)"/>
-    <rosparam command="load" subst_value="True" file="$(arg init_param_path)"/>
+    <rosparam command="load" subst_value="True" file="$(arg init_param_path)" if="$(eval init_param_path != 'none')"/>
+
+    <!-- Manual settings if init_param_path is not provided -->
+    <param name="svg_origin_x" value="$(arg svg_origin_x)" if="$(eval init_param_path == 'none')"/>
+    <param name="svg_origin_y" value="$(arg svg_origin_y)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_px_x" value="$(arg init_pos_px_x)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_px_y" value="$(arg init_pos_px_y)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_px_cov" value="$(arg init_pos_px_cov)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_m_x" value="$(arg init_pos_m_x)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_m_y" value="$(arg init_pos_m_y)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_deg_theta" value="$(arg init_pos_deg_theta)" if="$(eval init_param_path == 'none')"/>
+    <param name="init_pos_deg_cov" value="$(arg init_pos_deg_cov)" if="$(eval init_param_path == 'none')"/>
 
     <param name="particle_count" value="$(arg particle_count)"/>
     <param name="filter_pos_cov" value="$(arg filter_pos_cov)"/>
