@@ -11,7 +11,7 @@ void TopDownRender::initialize() {
   pc_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>(
       "pc", 10, &TopDownRender::pcCallback, this);
   motion_prior_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
-      "motion_prior", 10, &TopDownRender::motionPriorCallback, this);
+      "motion_prior", 500, &TopDownRender::motionPriorCallback, this);
 
   gt_pose_ = Eigen::Affine2f::Identity();
   gt_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("gt_pose", 10, 
@@ -455,13 +455,23 @@ void TopDownRender::pcCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_m
     return;
   }
 
+  bool did_step = false;
   // Loop starting with most recent
   for (auto mp_it = motion_prior_buf_.rbegin(); mp_it != motion_prior_buf_.rend(); ++mp_it) {
     if (cloud_msg->header.stamp == (*mp_it)->header.stamp) {
       takeStep(cloud_msg, *mp_it);
       motion_prior_buf_.erase(motion_prior_buf_.begin(), mp_it.base());
+      did_step = true;
+      last_pc_.reset();
       break;
     }
+  }
+
+  if (!did_step) {
+    // This is kind of the equivalent of motion_prior_buf_
+    // However, we are working with panos, so we can assume that the motion prior rate >=
+    // the pc rate.  Therefore, we only maintain a buffer of size 1.
+    last_pc_ = cloud_msg;
   }
 }
 
@@ -481,7 +491,14 @@ void TopDownRender::motionPriorCallback(
   }
 
   if (use_motion_prior_) {
-    motion_prior_buf_.push_back(motion_prior);
+    if (last_pc_ && last_pc_->header.stamp == motion_prior->header.stamp) {
+      // The last pc happened to be the one we need
+      takeStep(last_pc_, motion_prior);
+      // Reset so we don't use twice
+      last_pc_.reset();
+    } else {
+      motion_prior_buf_.push_back(motion_prior);
+    }
   }
 }
 

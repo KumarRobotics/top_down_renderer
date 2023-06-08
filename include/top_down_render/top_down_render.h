@@ -67,6 +67,7 @@ class TopDownRender {
 
     long last_map_stamp_ = 0;
     std::list<geometry_msgs::PoseStamped::ConstPtr> motion_prior_buf_;
+    sensor_msgs::PointCloud2::ConstPtr last_pc_;
 
     std::string map_frame_ = "map";
     std::string map_viz_frame_ = "sem_map";
