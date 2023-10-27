@@ -1,0 +1,51 @@
+- name: road
+  color: [0, 0, 255]
+  loc_weight: 2
+  exclusive: True
+  traversability_diff: 0
+  localization_class: 1
+- name: vegetation
+  color: [0, 255, 0]
+  loc_weight: 1.5
+  exclusive: False
+  traversability_diff: 4
+  localization_class: 4
+- name: building
+  color: [255, 0, 0]
+  loc_weight: 1.5 
+  exclusive: False
+  traversability_diff: 5
+  localization_class: 3
+- name: grass/sidewalk
+  color: [0, 100, 0]
+  loc_weight: 0.5
+  exclusive: True
+  traversability_diff: 2
+  localization_class: 0
+- name: vehicle
+  color: [0, 255, 255]
+  loc_weight: 1
+  exclusive: False
+  traversability_diff: 3
+  localization_class: 5
+- name: human
+  color: [255, 0, 255]
+  exclusive: False
+  traversability_diff: 3
+  localization_class: -1
+- name: gravel
+  color: [0, 100, 100]
+  loc_weight: 1.5
+  exclusive: True
+  traversability_diff: 1
+  localization_class: 2
+- name: tree_trunk
+  color: [100, 50, 50]
+  exclusive: False
+  traversability_diff: 5
+  localization_class: 4
+- name: light_pole
+  color: [255, 100, 0]
+  exclusive: False
+  traversability_diff: 5
+  localization_class: -1

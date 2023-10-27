@@ -20,7 +20,6 @@ find_package(catkin REQUIRED COMPONENTS
 	cv_bridge
   message_filters
   eigen_conversions
-  semantics_manager
   grid_map_comp
 )
 
