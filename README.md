@@ -6,8 +6,16 @@ Code for the semantic crossview SLAM algorithm detailed in
 ## Installation
 - rangenet_inf
 - grid_map
+- ros-noetic-octomap-msgs (for phoenix)
 
 
 ## Getting started
 
-## Demo data 
+### Subscriptions
+* `/os_node/rofl_odom/pose [geometry_msgs/PoseStamped]`
+* `/os_node/segmented_point_cloud [sensor_msgs/PointCloud2]`
+* `/titan/asoom/map [grid_map_msgs/GridMap]`
+
+### Publications
+* `/top_down_render/pose_est [geometry_msgs/PoseWithCovarianceStamped]`
+  
