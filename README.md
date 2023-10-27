@@ -20,4 +20,4 @@ Code for the semantic crossview SLAM algorithm detailed in
 * `/top_down_render/pose_est [geometry_msgs/PoseWithCovarianceStamped]`
 
 ### Configs
-For now, see [dynamic_pennov_config.yaml](./config/dynamic_pennov_config.yaml`]) for an example. 
+For now, see [dynamic_pennov_config.yaml](./config/dynamic_pennov_config.yaml) for an example. 
