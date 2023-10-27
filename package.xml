@@ -58,7 +58,6 @@
   <depend>cv_bridge</depend>
   <depend>message_filters</depend>
   <depend>eigen_conversions</depend>
-  <depend>semantics_manager</depend>
   <depend>grid_map_comp</depend>
 
 
