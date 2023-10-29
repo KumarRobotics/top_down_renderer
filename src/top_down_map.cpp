@@ -374,9 +374,9 @@ void TopDownMap::samplePts(Eigen::Vector2f center, float rot, Eigen::Array2Xf &p
       Eigen::Stride<Eigen::Dynamic, 2>(rows*2, 2));
 
   x_vals = Eigen::RowVectorXf::LinSpaced(rows, 
-      -res*(rows-1)/2., res*(rows-1)/2.).replicate(1, cols);
+      -res*(rows-1)/2., res*(rows-1)/2.).replicate(cols, 1); 
   y_vals = Eigen::RowVectorXf::LinSpaced(cols, 
-      -res*(cols-1)/2., res*(cols-1)/2.).replicate(1, rows);
+      -res*(cols-1)/2., res*(cols-1)/2.).replicate(rows, 1);
 
   //Transform coordinates
   Eigen::Matrix2f rotm;
